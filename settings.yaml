@@ -12,15 +12,15 @@ comfy_dir: "ComfyUI"
 # Ссылки на колеса (они скачаются в папку ./wheels)
 # no_deps: true добавит флаг --no-deps (нужно для xformers)
 wheels:
-  torch:
-    url: "https://download.pytorch.org/whl/nightly/cu128/torch-2.8.0.dev20250502%2Bcu128-cp312-cp312-win_amd64.whl"
-    no_deps: false
-  torchvision:
-    url: "https://download.pytorch.org/whl/nightly/cu128/torchvision-0.22.0.dev20250502%2Bcu128-cp312-cp312-win_amd64.whl"
-    no_deps: false
-  torchaudio:
-    url: "https://download.pytorch.org/whl/nightly/cu128/torchaudio-2.6.0.dev20250502%2Bcu128-cp312-cp312-win_amd64.whl"
-    no_deps: false
+#  torch:
+#    url: "https://download.pytorch.org/whl/nightly/cu128/torch-2.8.0.dev20250502%2Bcu128-cp312-cp312-win_amd64.whl"
+#    no_deps: false
+#  torchvision:
+#    url: "https://download.pytorch.org/whl/nightly/cu128/torchvision-0.22.0.dev20250502%2Bcu128-cp312-cp312-win_amd64.whl"
+#    no_deps: false
+#  torchaudio:
+#    url: "https://download.pytorch.org/whl/nightly/cu128/torchaudio-2.6.0.dev20250502%2Bcu128-cp312-cp312-win_amd64.whl"
+#    no_deps: false
   xformers:
     url: "https://huggingface.co/czmahi/xformers-windows-torch2.8-cu128-py312/resolve/main/latest-torch2.8-python3.12-xformers-comfyui-windows/xformers-0.0.31%2B8fc8ec5a.d20250503-cp312-cp312-win_amd64.whl"
     no_deps: true
