@@ -3,7 +3,7 @@ chcp 65001 >nul
 title ComfyUI Launcher by L,',L,
 cd /d "%~dp0"
 
-:: ===========================================
+:: ==========================================================
 echo.
 echo   ██▓        ██▓    ██▓        ██▓
 echo  ▓██▒              ▓██▒
@@ -15,8 +15,8 @@ echo  ░ ░ ▒  ░ ░▒   ░▒  ░ ░ ▒  ░ ░▒   ░▒
 echo    ░ ░    ░    ░     ░ ░    ░    ░
 echo      ░  ░  ░    ░      ░  ░  ░    ░
 echo.
-echo  ===========================================
-echo    ComfyUI Launcher by Soror L.'.L.'.
+echo  ======================================================
+echo    TRELLIS2 Portable ComfyUI Launcher by Soror L.'.L.'.
 echo.
 
 :: === Прокси для всех HTTP/HTTPS-запросов (включая HF, pip, requests, urllib и др.) ===
