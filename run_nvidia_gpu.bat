@@ -63,7 +63,7 @@ cd /d "%~dp0"
 echo [INFO] ComfyUI-Trellis2 update attempt completed.
 echo.
 
-".\comfy_env\python.exe" -s ComfyUI\main.py --normalvram --fast fp16_accumulation --cache-lru 6 --windows-standalone-build --listen --enable-cors-header --port 8085
+".\comfy_env\python.exe" -s -W ignore::FutureWarning ComfyUI\main.py --normalvram --fast fp16_accumulation --cache-lru 6 --windows-standalone-build --listen --enable-cors-header --port 8085
 ::  --use-flash-attention
 
 :: === Пауза, чтобы окно не закрылось при ошибке ===
