@@ -20,8 +20,10 @@
 
 ## 💻 Системные требования
 
-- ОС: Windows 10/11
-- GPU: NVIDIA RTX 3xxx (Инструкции sm85+) с поддержкой CUDA 12.8 (6+ GB VRAM)
+- **ОС:** Windows 10/11
+- **GPU:** NVIDIA RTX 3xxx (Инструкции sm85+) с поддержкой CUDA 12.8 (6+ GB VRAM)
+- **Miniconda:** [Скачать Miniconda3-latest-Windows-x86_64.exe](https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe) Нужна для запуска портативной среды ComfyUI.
+- **Git:** [Скачать Git для Windows](https://git-scm.com/download/win) 
 
 ## 🧩 Структура
 
