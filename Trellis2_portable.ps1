@@ -253,20 +253,27 @@ foreach ($node in $nodeList) {
 
 # === 8. Helper Files ===
 Write-Step "Processing Helper Files..." 8 9
-if (Test-Path "Helper-CEI.zip") {
-    tar.exe -xf .\Helper-CEI.zip
+if (Test-Path "Supp.zip") {
+    Write-Status "Extracting Supp.zip to ComfyUI directory..." "INFO"
     
-    function Copy-IfExists($src, $dest) {
-        if (Test-Path $src) {
-            $destDir = Split-Path $dest -Parent
-            if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Force -Path $destDir | Out-Null }
-            Copy-Item $src -Destination $dest -Force
-        }
+    # Создаём временную папку для распаковки
+    $tempExtractDir = Join-Path $env:TEMP "Supp_extract_$(Get-Random)"
+    New-Item -ItemType Directory -Force -Path $tempExtractDir | Out-Null
+    
+    # Распаковываем архив во временную папку
+    tar.exe -xf "Supp.zip" -C $tempExtractDir
+    
+    # Копируем содержимое Supp/ComfyUI/ в целевую папку ComfyUI с заменой
+    $sourceSupp = Join-Path $tempExtractDir "Supp\ComfyUI"
+    if (Test-Path $sourceSupp) {
+        Copy-Item -Path "$sourceSupp\*" -Destination $ComfyDir -Recurse -Force
+        Write-Status "Helper files merged into $ComfyDir" "SUCCESS"
+    } else {
+        Write-Status "Warning: Expected structure Supp/ComfyUI not found in archive" "WARN"
     }
-    Copy-IfExists "extra_model_paths.yaml" "$ComfyDir\extra_model_paths.yaml"
-    Copy-IfExists "comfy.settings.json" "$ComfyDir\user\default\comfy.settings.json"
-    Copy-IfExists "was_suite_config.json" "$ComfyDir\custom_nodes\was-node-suite-comfyui\was_suite_config.json"
-    Copy-IfExists "rgthree_config.json" "$ComfyDir\custom_nodes\rgthree-comfy\rgthree_config.json"
+    
+    # Очищаем временную папку
+    Remove-Item -Path $tempExtractDir -Recurse -Force
 }
 
 # === 9. Install Trellis2 GGUF ===
