@@ -1,0 +1,99 @@
+# Файл конфигурации установщика ComfyUI Portable
+# Измените список нодов или ссылки на колеса здесь.
+
+installer_version: "0.2.0"
+note: "Портативная сборка с локальным кэшем колес"
+
+# Основные настройки окружения
+env_name: "comfy_env"
+python_version: "3.12"
+comfy_dir: "ComfyUI"
+
+# Ссылки на колеса (они скачаются в папку ./wheels)
+# no_deps: true добавит флаг --no-deps (нужно для xformers)
+wheels:
+  torch:
+    url: "https://download.pytorch.org/whl/nightly/cu128/torch-2.8.0.dev20250502%2Bcu128-cp312-cp312-win_amd64.whl"
+    no_deps: false
+  torchvision:
+    url: "https://download.pytorch.org/whl/nightly/cu128/torchvision-0.22.0.dev20250502%2Bcu128-cp312-cp312-win_amd64.whl"
+    no_deps: false
+  torchaudio:
+    url: "https://download.pytorch.org/whl/nightly/cu128/torchaudio-2.6.0.dev20250502%2Bcu128-cp312-cp312-win_amd64.whl"
+    no_deps: false
+  xformers:
+    url: "https://huggingface.co/czmahi/xformers-windows-torch2.8-cu128-py312/resolve/main/latest-torch2.8-python3.12-xformers-comfyui-windows/xformers-0.0.31%2B8fc8ec5a.d20250503-cp312-cp312-win_amd64.whl"
+    no_deps: true
+
+# Список кастомных нод для клонирования
+nodes:
+  - url: "https://github.com/Comfy-Org/ComfyUI-Manager"
+    name: "comfyui-manager"
+  - url: "https://github.com/WASasquatch/was-node-suite-comfyui"
+    name: "was-node-suite-comfyui"
+  - url: "https://github.com/yolain/ComfyUI-Easy-Use"
+    name: "ComfyUI-Easy-Use"
+  - url: "https://github.com/Fannovel16/comfyui_controlnet_aux"
+    name: "comfyui_controlnet_aux"
+  - url: "https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes"
+    name: "ComfyUI_Comfyroll_CustomNodes"
+  - url: "https://github.com/crystian/ComfyUI-Crystools"
+    name: "ComfyUI-Crystools"
+  - url: "https://github.com/rgthree/rgthree-comfy"
+    name: "rgthree-comfy"
+  - url: "https://github.com/city96/ComfyUI-GGUF"
+    name: "ComfyUI-GGUF"
+  - url: "https://github.com/kijai/ComfyUI-Florence2"
+    name: "ComfyUI-Florence2"
+  - url: "https://github.com/SeargeDP/ComfyUI_Searge_LLM"
+    name: "ComfyUI_Searge_LLM"
+  - url: "https://github.com/gseth/ControlAltAI-Nodes"
+    name: "controlaltai-nodes"
+  - url: "https://github.com/stavsap/comfyui-ollama"
+    name: "comfyui-ollama"
+  - url: "https://github.com/MohammadAboulEla/ComfyUI-iTools"
+    name: "comfyui-itools"
+  - url: "https://github.com/spinagon/ComfyUI-seamless-tiling"
+    name: "comfyui-seamless-tiling"
+  - url: "https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch"
+    name: "comfyui-inpaint-cropandstitch"
+  - url: "https://github.com/Lerc/canvas_tab"
+    name: "canvas_tab"
+  - url: "https://github.com/1038lab/ComfyUI-OmniGen"
+    name: "ComfyUI-OmniGen"
+  - url: "https://github.com/john-mnz/ComfyUI-Inspyrenet-Rembg"
+    name: "comfyui-inspyrenet-rembg"
+  - url: "https://github.com/kaibioinfo/ComfyUI_AdvancedRefluxControl"
+    name: "ComfyUI_AdvancedRefluxControl"
+  - url: "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
+    name: "comfyui-videohelpersuite"
+  - url: "https://github.com/PowerHouseMan/ComfyUI-AdvancedLivePortrait"
+    name: "comfyui-advancedliveportrait"
+  - url: "https://github.com/Yanick112/ComfyUI-ToSVG"
+    name: "ComfyUI-ToSVG"
+  - url: "https://github.com/stavsap/comfyui-kokoro"
+    name: "comfyui-kokoro"
+  - url: "https://github.com/CY-CHENYUE/ComfyUI-Janus-Pro"
+    name: "janus-pro"
+  - url: "https://github.com/smthemex/ComfyUI_Sonic"
+    name: "ComfyUI_Sonic"
+  - url: "https://github.com/welltop-cn/ComfyUI-TeaCache"
+    name: "teacache"
+  - url: "https://github.com/kk8bit/KayTool"
+    name: "kaytool"
+  - url: "https://github.com/shiimizu/ComfyUI-TiledDiffusion"
+    name: "ComfyUI-TiledDiffusion"
+  - url: "https://github.com/Lightricks/ComfyUI-LTXVideo"
+    name: "ComfyUI-LTXVideo"
+  - url: "https://github.com/kijai/ComfyUI-KJNodes"
+    name: "comfyui-kjnodes"
+  - url: "https://github.com/visualbruno/ComfyUI-Trellis2"
+    name: "ComfyUI-Trellis2"
+
+# Дополнительные библиотеки (обычные пакеты из pypi)
+pypi_packages:
+  - name: "pygit2"
+  - name: "pylatexenc"
+    url: "https://www.piwheels.org/simple/pylatexenc/pylatexenc-3.0a32-py3-none-any.whl"
+  - name: "onnxruntime-gpu"
+  - name: "flet"
