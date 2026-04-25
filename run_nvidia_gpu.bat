@@ -25,9 +25,9 @@ echo.
 :: set NO_PROXY=localhost,127.0.0.1,::1
 
 :: === eVAR and HF ===
-set HF_ENDPOINT=https://hf-mirror.com  
+:: set HF_ENDPOINT=https://hf-mirror.com  
 set HF_HUB_DOWNLOAD_TIMEOUT=60
-set HF_HUB_ENABLE_HF_TRANSFER=1 
+:: set HF_HUB_ENABLE_HF_TRANSFER=1 
 
 :: === CPU и потоки для 2x Xeon E5-2697A v4 ===
 set NUMEXPR_MAX_THREADS=32 

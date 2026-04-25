@@ -18,6 +18,8 @@ comfy_env/
 # === Runtime Data (Generated, Heavy, Personal) ===
 ComfyUI/
 wheels/
+uv.exe
+uvx.exe
 
 
 # === Configs & Secrets ===
