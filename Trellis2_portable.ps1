@@ -254,9 +254,9 @@ foreach ($node in $nodeList) {
 # === 8. Helper Files ===
 Write-Step "Processing Helper Files..." 8 9
 
-# --- Обработка Supp.zip ---
+# --- Обработка Supp.tar.gz ---
 if (Test-Path "Supp.tar.gz") {
-    Write-Status "Extracting Supp.zip to ComfyUI directory..." "INFO"
+    Write-Status "Extracting Supp.tar.gz to ComfyUI directory..." "INFO"
     
     # Создаём временную папку для распаковки
     $tempExtractDir = Join-Path $env:TEMP "Supp_extract_$(Get-Random)"
@@ -285,18 +285,34 @@ if (Test-Path "Supp.tar.gz") {
 if (Test-Path $xformersFile) {
     Write-Status "Extracting xformers-0.0.33.tar.gz to Python environment..." "INFO"
     
-    # Проверяем существование папки site-packages, на случай если ее нет
+    # Проверяем существование папки site-packages
     if (-not (Test-Path $sitePackagesPath)) {
         New-Item -ItemType Directory -Force -Path $sitePackagesPath | Out-Null
     }
     
-    # Распаковываем архив напрямую в site-packages
-    # Используем tar.exe, так как он умеет распаковывать .tar.gz
     tar.exe -xzf $xformersFile -C $sitePackagesPath
     
     Write-Status "xformers installed to $sitePackagesPath" "SUCCESS"
 } else {
     Write-Status "xformers-0.0.33.tar.gz not found in update/, skipping..." "WARN"
+}
+
+# --- Обработка flash_attn-2.8.2.tar.gz ---
+ $flashAttnFile = "update\flash_attn-2.8.2.tar.gz"
+
+if (Test-Path $flashAttnFile) {
+    Write-Status "Extracting flash_attn-2.8.2.tar.gz to Python environment..." "INFO"
+    
+    # Проверяем существование папки site-packages
+    if (-not (Test-Path $sitePackagesPath)) {
+        New-Item -ItemType Directory -Force -Path $sitePackagesPath | Out-Null
+    }
+    
+    tar.exe -xzf $flashAttnFile -C $sitePackagesPath
+    
+    Write-Status "flash_attn installed to $sitePackagesPath" "SUCCESS"
+} else {
+    Write-Status "flash_attn-2.8.2.tar.gz not found in update/, skipping..." "WARN"
 }
 
 # === 9. Install Trellis2 GGUF ===
