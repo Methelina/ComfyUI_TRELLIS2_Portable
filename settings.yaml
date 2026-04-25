@@ -24,9 +24,9 @@ wheels:
 #  torchaudio:
 #    url: "https://download.pytorch.org/whl/nightly/cu128/torchaudio-2.6.0.dev20250502%2Bcu128-cp312-cp312-win_amd64.whl"
 #    no_deps: false
-  xformers:
-    url: "https://huggingface.co/czmahi/xformers-windows-torch2.8-cu128-py312/resolve/main/latest-torch2.8-python3.12-xformers-comfyui-windows/xformers-0.0.31%2B8fc8ec5a.d20250503-cp312-cp312-win_amd64.whl"
-    no_deps: true
+#  xformers:
+#    url: "https://download.pytorch.org/whl/cu128/xformers-0.0.32.post2-cp39-abi3-win_amd64.whl"
+#    no_deps: true
 
 # Список кастомных нод для клонирования
 nodes:

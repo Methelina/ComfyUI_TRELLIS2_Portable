@@ -253,7 +253,9 @@ foreach ($node in $nodeList) {
 
 # === 8. Helper Files ===
 Write-Step "Processing Helper Files..." 8 9
-if (Test-Path "Supp.zip") {
+
+# --- Обработка Supp.zip ---
+if (Test-Path "Supp.tar.gz") {
     Write-Status "Extracting Supp.zip to ComfyUI directory..." "INFO"
     
     # Создаём временную папку для распаковки
@@ -261,7 +263,7 @@ if (Test-Path "Supp.zip") {
     New-Item -ItemType Directory -Force -Path $tempExtractDir | Out-Null
     
     # Распаковываем архив во временную папку
-    tar.exe -xf "Supp.zip" -C $tempExtractDir
+    tar.exe -xzf "Supp.tar.gz" -C $tempExtractDir
     
     # Копируем содержимое Supp/ComfyUI/ в целевую папку ComfyUI с заменой
     $sourceSupp = Join-Path $tempExtractDir "Supp\ComfyUI"
@@ -274,6 +276,27 @@ if (Test-Path "Supp.zip") {
     
     # Очищаем временную папку
     Remove-Item -Path $tempExtractDir -Recurse -Force
+}
+
+# --- Обработка xformers-0.0.33.tar.gz ---
+ $xformersFile = "update\xformers-0.0.33.tar.gz"
+ $sitePackagesPath = "comfy_env\Lib\site-packages"
+
+if (Test-Path $xformersFile) {
+    Write-Status "Extracting xformers-0.0.33.tar.gz to Python environment..." "INFO"
+    
+    # Проверяем существование папки site-packages, на случай если ее нет
+    if (-not (Test-Path $sitePackagesPath)) {
+        New-Item -ItemType Directory -Force -Path $sitePackagesPath | Out-Null
+    }
+    
+    # Распаковываем архив напрямую в site-packages
+    # Используем tar.exe, так как он умеет распаковывать .tar.gz
+    tar.exe -xzf $xformersFile -C $sitePackagesPath
+    
+    Write-Status "xformers installed to $sitePackagesPath" "SUCCESS"
+} else {
+    Write-Status "xformers-0.0.33.tar.gz not found in update/, skipping..." "WARN"
 }
 
 # === 9. Install Trellis2 GGUF ===
