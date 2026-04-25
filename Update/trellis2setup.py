@@ -1,6 +1,6 @@
 # ---------------------------------------------------------
 # \Update\trellis2setup.py
-# Version: 1.0.5
+# Version: 1.0.6
 # Author:  Soror L.'.L.'.
 # Updated: 2026-04-25
 #
@@ -18,6 +18,9 @@
 #   [+] Added automatic Triton (triton-windows) installation with GPU detection
 #   [+] Integrated Triton functionality test after installation
 #   [*] Reordered installation stages: Triton setup before model download
+#
+# Patchnote v1.0.6 (By Soror L.'.L.'.):
+#   [*] Replaced urllib download with PycURL; system curl remains as fallback
 # ---------------------------------------------------------
 
 import os
@@ -49,7 +52,7 @@ class Colors:
     WHITE = '\033[97m'
     RESET = '\033[0m'
 
-VERSION = "1.0.5"
+VERSION = "1.0.6"
 NODE_NAME = "Trellis2 GGUF"
 TITLE = f"{NODE_NAME} Installer v{VERSION}"
 
@@ -132,14 +135,14 @@ def write_status(message, msg_type="INFO"):
         "ERROR": " [ERROR] ",
         "SUCCESS": " [OK]    "
     }.get(msg_type, " [INFO]  ")
-    
+
     color = {
         "INFO": Colors.CYAN,
         "WARN": Colors.YELLOW,
         "ERROR": Colors.RED,
         "SUCCESS": Colors.GREEN
     }.get(msg_type, Colors.WHITE)
-    
+
     print(f"{color}{prefix}{message}{Colors.RESET}")
 
 def write_step(message, step, total):
@@ -179,15 +182,85 @@ def erase_folder(path):
 
 def download_file_with_resume(url, dest_path):
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-    
-    tmp_path = dest_path + ".tmp"
+
     if os.path.exists(dest_path):
         write_status(f"File already exists: {os.path.basename(dest_path)}", "INFO")
         return True
-    
+
+    tmp_path = dest_path + ".tmp"
+    existing_size = 0
+    if os.path.exists(tmp_path):
+        existing_size = os.path.getsize(tmp_path)
+
+    # ── 1. Try PycURL ─────────────────────────────────────────────
+    try:
+        import pycurl
+
+        write_status(f"Using pycurl to download {os.path.basename(dest_path)}", "INFO")
+
+        # HEAD to get total size (for progress bar)
+        total_size = 0
+        c_head = pycurl.Curl()
+        c_head.setopt(pycurl.URL, url)
+        c_head.setopt(pycurl.NOBODY, 1)
+        c_head.setopt(pycurl.FOLLOWLOCATION, 1)
+        c_head.setopt(pycurl.CONNECTTIMEOUT, 30)
+        c_head.setopt(pycurl.TIMEOUT, 60)
+        c_head.perform()
+        resp_code = c_head.getinfo(pycurl.RESPONSE_CODE)
+        if resp_code == 200:
+            total_size = c_head.getinfo(pycurl.CONTENT_LENGTH_DOWNLOAD)
+        c_head.close()
+
+        # Download with resume support
+        c = pycurl.Curl()
+        c.setopt(pycurl.URL, url)
+        c.setopt(pycurl.FOLLOWLOCATION, 1)
+        c.setopt(pycurl.CONNECTTIMEOUT, 30)
+        c.setopt(pycurl.TIMEOUT, 300)
+
+        if existing_size > 0:
+            c.setopt(pycurl.RESUME_FROM, existing_size)
+        else:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+        with tqdm(total=total_size, initial=existing_size, unit='B', unit_scale=True,
+                  desc=f"{Colors.CYAN}Downloading{Colors.RESET} {os.path.basename(dest_path)}",
+                  ascii=True) as bar:
+            def progress_callback(download_t, download_d, upload_t, upload_d):
+                bar.n = download_d + existing_size
+                bar.refresh()
+
+            c.setopt(pycurl.NOPROGRESS, 0)
+            c.setopt(pycurl.XFERINFOFUNCTION, progress_callback)
+
+            with open(tmp_path, 'ab' if existing_size > 0 else 'wb') as f:
+                c.setopt(pycurl.WRITEDATA, f)
+                try:
+                    c.perform()
+                except pycurl.error as e:
+                    raise Exception(f"PyCURL download failed: {e}")
+
+        c.close()
+
+        if total_size > 0 and os.path.getsize(tmp_path) < total_size:
+            raise Exception("Download incomplete")
+
+        os.replace(tmp_path, dest_path)
+        return True
+
+    except ImportError:
+        pass  # PycURL not available → next fallback
+    except Exception as e:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise e
+
+    # ── 2. Fallback to system curl ───────────────────────────────
     if shutil.which("curl"):
         cmd = ["curl", "-L", "-C", "-", "--progress-bar", "-o", tmp_path, url]
-        write_status(f"Using curl to download {os.path.basename(dest_path)}", "INFO")
+        write_status(f"Using system curl to download {os.path.basename(dest_path)}", "INFO")
         try:
             with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as proc:
                 for line in proc.stdout:
@@ -197,71 +270,40 @@ def download_file_with_resume(url, dest_path):
                 os.replace(tmp_path, dest_path)
                 return True
             else:
-                write_status(f"curl failed with code {proc.returncode}, falling back to Python...", "WARN")
+                write_status(f"curl failed with code {proc.returncode}.", "ERROR")
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+                raise Exception(f"curl download failed with exit code {proc.returncode}")
         except Exception as e:
-            write_status(f"curl error: {e}, falling back to Python...", "WARN")
-    
-    write_status(f"Using Python urllib to download {os.path.basename(dest_path)}", "INFO")
-    existing_size = 0
-    if os.path.exists(tmp_path):
-        existing_size = os.path.getsize(tmp_path)
-    
-    headers = {}
-    if existing_size > 0:
-        headers["Range"] = f"bytes={existing_size}-"
-    
-    req = urllib.request.Request(url, headers=headers)
-    try:
-        with urllib.request.urlopen(req) as response:
-            total_size = None
-            content_range = response.info().get("Content-Range")
-            if content_range:
-                total_size = int(content_range.split("/")[1])
-            else:
-                total_size = int(response.info().get("Content-Length", -1))
-                if existing_size > 0:
-                    total_size += existing_size
-            
-            mode = "ab" if existing_size > 0 else "wb"
-            with open(tmp_path, mode) as f:
-                with tqdm(total=total_size, initial=existing_size, unit='B', unit_scale=True,
-                          desc=f"{Colors.CYAN}Downloading{Colors.RESET} {os.path.basename(dest_path)}",
-                          ascii=True) as bar:
-                    while True:
-                        chunk = response.read(8192)
-                        if not chunk:
-                            break
-                        f.write(chunk)
-                        bar.update(len(chunk))
-        os.replace(tmp_path, dest_path)
-        return True
-    except Exception as e:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-        raise Exception(f"Download failed: {e}")
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            raise Exception(f"curl download error: {e}")
+
+    # ── 3. No suitable download tool available ───────────────────
+    raise Exception("Neither pycurl nor system curl are available. Install pycurl or add curl to PATH.")
 
 def process_downloads(manifest, base_url, target_folder, force_delete=None):
     if force_delete is None:
         force_delete = []
-    
+
     failed = []
     os.makedirs(target_folder, exist_ok=True)
-    
+
     for fname in force_delete:
         full_path = os.path.join(target_folder, fname)
         if os.path.exists(full_path):
             os.remove(full_path)
-    
+
     for i, (filename, label) in enumerate(manifest, 1):
         dest_path = os.path.join(target_folder, filename)
         url = f"{base_url}/{filename}"
-        
+
         if os.path.exists(dest_path):
             size_mb = os.path.getsize(dest_path) / (1024 * 1024)
             status = f"{Colors.GREEN}already exists{Colors.RESET} ({size_mb:.0f} MB)" if size_mb > 1 else f"{Colors.GREEN}already exists{Colors.RESET}"
             print(f"[{i:2d}/{len(manifest)}] {label:25s}  {status}")
             continue
-        
+
         print(f"[{i:2d}/{len(manifest)}] {label:25s}  {Colors.YELLOW}downloading...{Colors.RESET}")
         try:
             download_file_with_resume(url, dest_path)
@@ -269,7 +311,7 @@ def process_downloads(manifest, base_url, target_folder, force_delete=None):
         except Exception as e:
             write_status(f"Failed {label}: {e}", "ERROR")
             failed.append(filename)
-    
+
     return failed
 
 # ----------------------------- Triton integration -----------------------------
@@ -308,14 +350,12 @@ def get_triton_package_spec():
     if torch_ver_str is None:
         write_status("Could not determine PyTorch version. Installing latest triton-windows.", "WARN")
         return "triton-windows<3.7"
-    
-    # Parse torch version
+
     parts = torch_ver_str.split('.')
     if len(parts) < 2:
         return "triton-windows<3.7"
     torch_major, torch_minor = int(parts[0]), int(parts[1])
-    
-    # Compatibility table (same as earlier script)
+
     compat = {
         (2, 10): "<3.7",
         (2, 9):  "<3.6",
@@ -325,13 +365,12 @@ def get_triton_package_spec():
         (2, 5):  "<3.2",
     }
     version_spec = compat.get((torch_major, torch_minor), "<3.7")
-    
-    # Additional check for Turing GPUs (sm75)
+
     cc = get_cuda_capability()
     if cc is not None and int(cc * 10) == 75:
         write_status("Turing GPU detected (GTX 16xx/RTX 20xx). Forcing Triton < 3.3.", "WARN")
         version_spec = "<3.3"
-    
+
     return f"triton-windows{version_spec}"
 
 def install_triton():
@@ -339,7 +378,6 @@ def install_triton():
     pkg_spec = get_triton_package_spec()
     write_status(f"Installing {pkg_spec}...", "INFO")
     cmd = [PYTHON_EXE, "-m", "pip", "install", "-U", pkg_spec] + PIP_ARGS
-    # Run pip with live output to see progress
     process = subprocess.Popen(cmd)
     process.wait()
     if process.returncode != 0:
@@ -379,7 +417,6 @@ if torch.allclose(diff, torch.zeros_like(diff)):
 else:
     print("TRITON_TEST_FAILED")
 """
-    # Write test code to a temporary file to avoid any naming conflicts (e.g., triton.py)
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
         f.write(test_code)
         temp_file = f.name
@@ -453,15 +490,14 @@ def step_install_wheels():
     write_step("Installing Pre-compiled Wheels", 5, 8)
     temp_wheels_dir = os.path.join(DIR_LVL, "temp_wheels")
     os.makedirs(temp_wheels_dir, exist_ok=True)
-    
-    # Find site-packages
+
     site_packages = os.path.join(DIR_LVL, "comfy_env", "Lib", "site-packages")
     if not os.path.exists(site_packages) and args.env_path:
         py_dir = os.path.dirname(PYTHON_EXE)
         site_packages = os.path.join(py_dir, "Lib", "site-packages")
         if not os.path.exists(site_packages):
             site_packages = os.path.join(py_dir, "..", "Lib", "site-packages")
-    
+
     old_packages = ["o_voxel", "cumesh", "custom_rasterizer", "nvdiffrast", "nvdiffrec_render", "flex_gemm"]
     if os.path.exists(site_packages):
         for pkg in old_packages:
@@ -472,7 +508,7 @@ def step_install_wheels():
                         erase_folder(pkg_path)
                     elif os.path.isfile(pkg_path):
                         os.remove(pkg_path)
-    
+
     for wheel_name, wheel_url in WHEELS_LIST:
         wheel_filename = wheel_url.split("/")[-1]
         wheel_path = os.path.join(temp_wheels_dir, wheel_filename)
@@ -494,7 +530,6 @@ def step_install_triton():
     write_step("Installing Triton for Windows Compatibility", 6, 8)
     if install_triton():
         write_status("Triton installation completed.", "SUCCESS")
-        # Run test
         write_status("Running Triton functionality test...", "INFO")
         if test_triton():
             write_status("Triton test passed! Kernel compilation works.", "SUCCESS")
@@ -502,7 +537,7 @@ def step_install_triton():
             write_status("Triton test failed. Some functionality might be unavailable.", "WARN")
     else:
         write_status("Triton could not be installed. Proceeding without Triton support.", "WARN")
-    
+
 def step_download_models():
     write_step("Downloading AI Models (DINOv3 + Trellis2 GGUF)", 7, 8)
     write_status("--- DINOv3 Model ---", "INFO")
@@ -530,7 +565,7 @@ def step_apply_patches():
         site_packages = os.path.join(py_dir, "Lib", "site-packages")
         if not os.path.exists(site_packages):
             site_packages = os.path.join(py_dir, "..", "Lib", "site-packages")
-    
+
     remesh_path = os.path.join(site_packages, "cumesh", "remeshing.py")
     if os.path.exists(remesh_path):
         backup_path = remesh_path + ".bak"
@@ -545,7 +580,7 @@ def step_apply_patches():
             write_status("Patched remeshing.py successfully", "SUCCESS")
         except Exception as e:
             write_status(f"Failed to patch remeshing.py: {e}", "WARN")
-    
+
     run_command_live([PYTHON_EXE, "-m", "pip", "install", "--upgrade", "pooch", "--no-deps"] + PIP_ARGS)
     result = subprocess.run([PYTHON_EXE, "-c", "import numpy, sys; sys.exit(0 if numpy.__version__ == '1.26.4' else 1)"])
     if result.returncode != 0:
@@ -563,16 +598,16 @@ def main():
     print(f"{Colors.GREEN}  ComfyUI Conda Environment Edition{Colors.RESET}")
     print(f"{Colors.GREEN}==========================================={Colors.RESET}")
     print("")
-    
+
     step_check_environment()
     step_check_comfyui()
     step_check_comfyui_status()
     step_install_custom_node()
     step_install_wheels()
-    step_install_triton()      # <-- NEW: install Triton and test
+    step_install_triton()
     step_download_models()
     step_apply_patches()
-    
+
     print("")
     print(f"{Colors.GREEN}==========================================={Colors.RESET}")
     write_status(f"{NODE_NAME} Installation Complete", "SUCCESS")

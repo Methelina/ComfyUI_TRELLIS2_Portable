@@ -12,6 +12,9 @@ comfy_dir: "ComfyUI"
 # Ссылки на колеса (они скачаются в папку ./wheels)
 # no_deps: true добавит флаг --no-deps (нужно для xformers)
 wheels:
+  llama_cpp_python:
+    url: "https://github.com/JamePeng/llama-cpp-python/releases/download/v0.3.33-cu128-Basic-win-20260315/llama_cpp_python-0.3.33+cu128.basic-cp312-cp312-win_amd64.whl"
+    no_deps: false
 #  torch:
 #    url: "https://download.pytorch.org/whl/nightly/cu128/torch-2.8.0.dev20250502%2Bcu128-cp312-cp312-win_amd64.whl"
 #    no_deps: false
@@ -95,6 +98,8 @@ pypi_packages:
   - name: "pygit2"
   - name: "pylatexenc"
     url: "https://www.piwheels.org/simple/pylatexenc/pylatexenc-3.0a32-py3-none-any.whl"
+  - name: "PyCurl"
+    url: "https://files.pythonhosted.org/packages/a8/16/ab7d73ed3d2a31a9d9bb8a44710b8f95f6ea24bd260967f07ae67c36e8c4/pycurl-7.45.7-cp312-cp312-win_amd64.whl"
   - name: "onnxruntime-gpu"
   - name: "flet"
   - name: "plyfile"
