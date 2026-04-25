@@ -47,6 +47,9 @@ set PYTORCH_CUDA_ALLOC_CONF=garbage_collection_threshold:0.8,expandable_segments
 :: === GPU ===
 set CUDA_VISIBLE_DEVICES=0
 
+:: === ComfyUI port ===
+set COMFYUI_PORT=8085
+
 :: === Attention ===
 set XFORMERS_MORE_DETAILS=1
 set FLASH_ATTENTION_FORCE_OPTIM=1
@@ -63,7 +66,7 @@ cd /d "%~dp0"
 echo [INFO] ComfyUI-Trellis2 update attempt completed.
 echo.
 
-".\comfy_env\python.exe" -s -W ignore::FutureWarning ComfyUI\main.py --normalvram --fast fp16_accumulation --cache-lru 6 --windows-standalone-build --listen --enable-cors-header --port 8085
+call ".\comfy_env\Scripts\activate.bat" && python -s -W ignore::FutureWarning ComfyUI\main.py --normalvram --fast fp16_accumulation --cache-lru 6 --windows-standalone-build --listen --enable-cors-header --port %COMFYUI_PORT%
 ::  --use-flash-attention
 
 :: === Пауза, чтобы окно не закрылось при ошибке ===

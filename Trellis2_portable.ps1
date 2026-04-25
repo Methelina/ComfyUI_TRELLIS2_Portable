@@ -1,10 +1,10 @@
-<#
+﻿<#
 .SYNOPSIS
-    ComfyUI Installer v0.3.0 (PyTorch via Index, English UI)
+    ComfyUI Installer v0.3.1 (PyTorch via Index, English UI)
     Stage numbering and localized to English.
     
-    Version: 0.3.0
-    Author: Soror L.'.L.'. (Modified by AI Assistant)
+    Version: 0.3.1
+    Author: Soror L.'.L.'. (Modified by pytraveler)
 #>
 
 # ==========================================
@@ -57,8 +57,13 @@ if ($yamlText -match "wheels:([\s\S]*?)(?=nodes:|pypi_packages:|\Z)") {
 # === Vars ===
  $EnvName = $config['env_name']
  $ComfyDir = $config['comfy_dir']
- $CondaPath = (Get-Command conda).Source
- $PIPargs = "--no-cache-dir --no-warn-script-location --timeout=1000 --retries 200"
+ $UvVersion = "0.11.6"
+ $UvZipUrl = "https://releases.astral.sh/github/uv/releases/download/$UvVersion/uv-x86_64-pc-windows-msvc.zip"
+ $UvExePath = Join-Path $ScriptPath "uv.exe"
+ $PythonExePath = Join-Path $ScriptPath "$EnvName\Scripts\python.exe"
+ $PythonSymlinkPath = Join-Path $ScriptPath "$EnvName\python.exe"
+# uv pip uses --no-cache instead of pip's --no-cache-dir
+ $PIPargs = "--no-cache"
 
 # === Functions ===
 function Write-Status {
@@ -91,11 +96,20 @@ function Test-Command {
     return $null -ne (Get-Command $Cmd -ErrorAction SilentlyContinue)
 }
 
-function Invoke-CondaCommand {
+function Invoke-UvPipInstall {
     param([string]$Command)
-    Write-Host "   > $Command" -ForegroundColor DarkGray
-    $fullEnvPath = Join-Path $ScriptPath $EnvName
-    $process = Start-Process -FilePath $CondaPath -ArgumentList "run -p `"$fullEnvPath`" $Command" -NoNewWindow -Wait -PassThru
+    Write-Host "   > uv pip install $Command" -ForegroundColor DarkGray
+    $process = Start-Process -FilePath $UvExePath -ArgumentList "pip install --python `"$PythonExePath`" $Command" -NoNewWindow -Wait -PassThru
+    if ($process.ExitCode -ne 0) {
+        Write-Status "Execution failed (code $($process.ExitCode))" "ERROR"
+    }
+    return $process.ExitCode
+}
+
+function Invoke-PythonCommand {
+    param([string]$Command)
+    Write-Host "   > python $Command" -ForegroundColor DarkGray
+    $process = Start-Process -FilePath $PythonExePath -ArgumentList $Command -NoNewWindow -Wait -PassThru
     if ($process.ExitCode -ne 0) {
         Write-Status "Execution failed (code $($process.ExitCode))" "ERROR"
     }
@@ -138,16 +152,51 @@ Write-Host "     ░  ░  ░    ░      ░  ░  ░    ░				" -Foreground
 Write-Host ""
 Write-Host "  ===========================================	" -ForegroundColor Green
 Write-Host "    ComfyUI TRELLIS2 by Soror L.'.L.'." -ForegroundColor Yellow
-Write-Host "    Portable Installer v0.1.1" -ForegroundColor Green
+Write-Host "    Portable Installer v0.1.2" -ForegroundColor Green
 Write-Host "  ===========================================	" -ForegroundColor Green
 Write-Host ""
 # ==========================================
 
+# === 0. Download uv ===
+Write-Step "Downloading uv Package Manager ($UvVersion)..." 0 10
+if (-not (Test-Path $UvExePath)) {
+    $uvZip = Join-Path $ScriptPath "uv.zip"
+    Write-Status "Downloading uv $UvVersion..." "INFO"
+    try {
+        Invoke-WebRequest -Uri $UvZipUrl -OutFile $uvZip -ErrorAction Stop
+    } catch {
+        Write-Status "Download failed: $($_.Exception.Message)" "ERROR"
+        Remove-Item $uvZip -Force -ErrorAction SilentlyContinue
+        Read-Host "Press Enter to exit"
+        exit 1
+    }
+    if ((Test-Path $uvZip) -and (Get-Item $uvZip).Length -lt 1000) {
+        Write-Status "Downloaded file is too small, likely an error page. Cleaning up..." "ERROR"
+        Remove-Item $uvZip -Force -ErrorAction SilentlyContinue
+        Read-Host "Press Enter to exit"
+        exit 1
+    }
+    $uvTmp = Join-Path $ScriptPath "uv_tmp"
+    if (Test-Path $uvTmp) { Remove-Item $uvTmp -Recurse -Force }
+    Expand-Archive -Path $uvZip -DestinationPath $uvTmp -Force
+    $extractedDir = Get-ChildItem -Path $uvTmp -Directory | Select-Object -First 1
+    if (-not $extractedDir) {
+        # Files are directly in uv_tmp, no subdirectory
+        $extractedDir = @{ FullName = $uvTmp }
+    }
+    Copy-Item (Join-Path $extractedDir.FullName "uv.exe") $UvExePath
+    Copy-Item (Join-Path $extractedDir.FullName "uvx.exe") (Join-Path $ScriptPath "uvx.exe") -ErrorAction SilentlyContinue
+    Remove-Item $uvTmp -Recurse -Force
+    Remove-Item $uvZip -Force
+    Write-Status "uv $UvVersion extracted successfully." "SUCCESS"
+} else {
+    Write-Status "uv.exe already exists, skipping download." "SUCCESS"
+}
+
 # === 1. Check Deps ===
-Write-Step "Checking Dependencies (Git, Conda)..." 1 9
+Write-Step "Checking Dependencies (Git)..." 1 10
  $Missing = @()
 if (!(Test-Command "git")) { $Missing += "Git" }
-if (!(Test-Command "conda")) { $Missing += "Conda" }
 
 if ($Missing.Count -gt 0) {
     Write-Status "CRITICAL ERROR: Missing dependencies." "ERROR"
@@ -159,7 +208,7 @@ if ($Missing.Count -gt 0) {
 Write-Status "Dependencies found." "SUCCESS"
 
 # === 2. Check Folders ===
-Write-Step "Checking Directory Structure..." 2 9
+Write-Step "Checking Directory Structure..." 2 10
 if (Test-Path $EnvName) {
     Write-Status "Environment folder '$EnvName' already exists." "WARN"
     $ans = Read-Host "Delete and recreate? (Y/N)"
@@ -178,45 +227,64 @@ if (Test-Path $ComfyDir) {
 }
 
 # === 3. Create Env ===
-Write-Step "Creating Conda Environment ($EnvName)..." 3 9
+Write-Step "Creating Python Environment with uv ($EnvName)..." 3 10
  $EnvDirPath = Join-Path $ScriptPath $EnvName
-& $CondaPath create -p $EnvDirPath python=$($config['python_version']) -y -q
+& $UvExePath venv $EnvDirPath --python $config['python_version']
 if ($LASTEXITCODE -ne 0) {
     Write-Status "Failed to create environment." "ERROR"
     exit 1
 }
+# Create compatibility entry point: comfy_env\python.exe → comfy_env\Scripts\python.exe
+# This allows all existing .bat files and Python scripts to use the old Conda-style path
+$pythonTarget = Join-Path $EnvDirPath "Scripts\python.exe"
+$pythonLink = Join-Path $EnvDirPath "python.exe"
+if (-not (Test-Path $pythonLink)) {
+    # Try hardlink first, fall back to .bat wrapper
+    $hardlinkCreated = $false
+    try {
+        $null = New-Item -ItemType HardLink -Path $pythonLink -Target $pythonTarget -ErrorAction Stop
+        Write-Status "Created hardlink: python.exe -> Scripts\python.exe" "SUCCESS"
+        $hardlinkCreated = $true
+    } catch {
+        # Hardlink failed
+    }
+    if (-not $hardlinkCreated) {
+        # Create .bat wrapper as fallback
+        Set-Content -Path $pythonLink -Value "@`"%~dp0Scripts\python.exe`" %*" -Encoding ASCII
+        Write-Status "Created .bat wrapper: python.exe -> Scripts\python.exe (hardlink unavailable)" "WARN"
+    }
+}
 Write-Status "Environment created." "SUCCESS"
 
 # === 4. Install PyTorch (Via Index) ===
-Write-Step "Installing PyTorch (Torch 2.8 + Torch 0.23 + Audio 2.8)..." 4 9
-# Using the command provided by the user
- $TorchCmd = "pip install torch==2.8.0+cu128 torchvision==0.23.0+cu128 torchaudio==2.8.0+cu128 --extra-index-url https://download.pytorch.org/whl/cu128"
-Invoke-CondaCommand $TorchCmd
+Write-Step "Installing PyTorch (Torch 2.8 + Torch 0.23 + Audio 2.8)..." 4 10
+ $TorchCmd = "torch==2.8.0+cu128 torchvision==0.23.0+cu128 torchaudio==2.8.0+cu128 --extra-index-url https://download.pytorch.org/whl/cu128"
+Invoke-UvPipInstall $TorchCmd
 
 # === 5. Install Wheels (xFormers) ===
-Write-Step "Installing Specific Wheels (xFormers)..." 5 9
+Write-Step "Installing Specific Wheels (xFormers)..." 5 10
 foreach ($key in $wheelList.Keys) {
     $info = $wheelList[$key]
     $localWheelPath = Get-OrDownload-Wheel -Name $key -Url $info.url
     if ($localWheelPath) {
         $depsFlag = if ($info.no_deps) { "--no-deps" } else { "" }
-        Invoke-CondaCommand "pip install `"$localWheelPath`" $depsFlag $PIPargs"
+        Invoke-UvPipInstall "`"$localWheelPath`" $depsFlag $PIPargs"
     } else {
         Write-Status "Skipping $key due to download error." "WARN"
     }
 }
 
 # Install base pip packages
-Invoke-CondaCommand "pip install pygit2 $PIPargs"
+Invoke-UvPipInstall "pygit2 $PIPargs"
 
 # === 6. Install PyPI Packages ===
-Write-Step "Installing PyPI Packages..." 6 9
+Write-Step "Installing PyPI Packages..." 6 10
 if ($yamlText -match "pypi_packages:([\s\S]*?)(?=\Z|wheels:|nodes:)") {
     $pypiBlock = $matches[1]
     # Simple packages
     $simpleMatches = [regex]::Matches($pypiBlock, "- name:\s*`"([a-zA-Z0-9_-]+)`"(?!.*url:)")
     foreach ($m in $simpleMatches) {
-        Invoke-CondaCommand "pip install $($m.Groups[1].Value) $PIPargs"
+        Invoke-UvPipInstall "$($m.Groups[1].Value) $PIPargs"
     }
     # URL packages
     $urlMatches = [regex]::Matches($pypiBlock, "- name:\s*`"([a-zA-Z0-9_-]+)`"\s+url:\s*`"([^`"]+)`"")
@@ -224,15 +292,15 @@ if ($yamlText -match "pypi_packages:([\s\S]*?)(?=\Z|wheels:|nodes:)") {
         $name = $m.Groups[1].Value
         $url = $m.Groups[2].Value
         $localPath = Get-OrDownload-Wheel -Name $name -Url $url
-        if ($localPath) { Invoke-CondaCommand "pip install `"$localPath`" $PIPargs" }
+        if ($localPath) { Invoke-UvPipInstall "`"$localPath`" $PIPargs" }
     }
 }
 
 # === 7. Clone & ComfyUI ===
-Write-Step "Cloning ComfyUI and Installing Requirements..." 7 9
+Write-Step "Cloning ComfyUI and Installing Requirements..." 7 10
 git clone https://github.com/comfyanonymous/ComfyUI $ComfyDir
 Set-Location $ComfyDir
-Invoke-CondaCommand "pip install -r requirements.txt $PIPargs"
+Invoke-UvPipInstall "-r `"requirements.txt`" $PIPargs"
 Set-Location $ScriptPath
 
 Write-Status "Installing Custom Nodes..." "INFO"
@@ -242,17 +310,17 @@ foreach ($node in $nodeList) {
 
     $reqPath = "$ComfyDir\custom_nodes\$($node.name)\requirements.txt"
     if (Test-Path $reqPath) {
-        Invoke-CondaCommand "pip install -r `"$reqPath`" --use-pep517 $PIPargs"
+        Invoke-UvPipInstall "-r `"$reqPath`" $PIPargs"
     }
 
     $installPath = "$ComfyDir\custom_nodes\$($node.name)\install.py"
     if (Test-Path $installPath) {
-        Invoke-CondaCommand "python `"$installPath`""
+        Invoke-PythonCommand "`"$installPath`""
     }
 }
 
 # === 8. Helper Files ===
-Write-Step "Processing Helper Files..." 8 9
+Write-Step "Processing Helper Files..." 8 10
 
 # --- Обработка Supp.tar.gz ---
 if (Test-Path "Supp.tar.gz") {
@@ -316,12 +384,12 @@ if (Test-Path $flashAttnFile) {
 }
 
 # === 9. Install Trellis2 GGUF ===
-Write-Step "Installing Trellis2 GGUF (Models and Wheels)..." 9 9
+Write-Step "Installing Trellis2 GGUF (Models and Wheels)..." 9 10
 
 $TrellisScript = "Update\trellis2setup.py"
 if (Test-Path $TrellisScript) {
     Write-Status "Running Trellis2 setup script..." "INFO"
-    Invoke-CondaCommand "python `"$TrellisScript`""
+    Invoke-PythonCommand "`"$TrellisScript`""
 } else {
     Write-Status "Trellis2 setup script not found at $TrellisScript" "WARN"
 }

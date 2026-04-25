@@ -1,6 +1,6 @@
 # ---------------------------------------------------------
 # \Update\trellis2setup.py
-# Version: 1.0.6
+# Version: 1.0.7
 # Author:  Soror L.'.L.'.
 # Updated: 2026-04-25
 #
@@ -21,6 +21,11 @@
 #
 # Patchnote v1.0.6 (By Soror L.'.L.'.):
 #   [*] Replaced urllib download with PycURL; system curl remains as fallback
+#
+# Patchnote v1.0.7 (by pytraveler):
+#   [*] Replaced Conda with uv (astral-sh/uv) as package manager
+#   [*] All pip install calls replaced with uv pip install
+#   [*] Removed --use-pep517 flag (uv supports PEP 517 by default)
 # ---------------------------------------------------------
 
 import os
@@ -34,9 +39,10 @@ import tempfile
 from tqdm import tqdm
 
 # ----------------------------- Command line arguments -----------------------------
-parser = argparse.ArgumentParser(description="Trellis2 GGUF Installer for ComfyUI Conda")
-parser.add_argument('--env_path', help='Path to python.exe of conda environment (overrides auto-detection)')
+parser = argparse.ArgumentParser(description="Trellis2 GGUF Installer for ComfyUI (uv/venv)")
+parser.add_argument('--env_path', help='Path to python.exe of uv/venv environment (overrides auto-detection)')
 parser.add_argument('--comfyui_dir', help='Path to ComfyUI directory (overrides auto-detection)')
+parser.add_argument('--port', type=int, default=8085, help='ComfyUI port to check (default: 8085)')
 args = parser.parse_args()
 
 # ----------------------------- Colors for output -----------------------------
@@ -52,7 +58,7 @@ class Colors:
     WHITE = '\033[97m'
     RESET = '\033[0m'
 
-VERSION = "1.0.6"
+VERSION = "1.0.7"
 NODE_NAME = "Trellis2 GGUF"
 TITLE = f"{NODE_NAME} Installer v{VERSION}"
 
@@ -66,10 +72,15 @@ if args.env_path and os.path.exists(args.env_path):
     DIR_LVL = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 else:
     DIR_LVL = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
-    PYTHON_EXE = os.path.join(DIR_LVL, "comfy_env", "python.exe")
+    PYTHON_EXE = os.path.join(DIR_LVL, "comfy_env", "Scripts", "python.exe")
     if not os.path.exists(PYTHON_EXE):
         print(f"{Colors.YELLOW}[WARN]  Default python not found at {PYTHON_EXE}{Colors.RESET}")
         print(f"{Colors.YELLOW}       Specify correct path with --env_path \"path\\to\\python.exe\"{Colors.RESET}")
+
+# Determine uv.exe path
+UV_EXE = os.path.join(DIR_LVL, "uv.exe")
+if not os.path.exists(UV_EXE):
+    print(f"{Colors.YELLOW}[WARN]  uv.exe not found at {UV_EXE}{Colors.RESET}")
 
 # Determine ComfyUI directory
 if args.comfyui_dir and os.path.exists(args.comfyui_dir):
@@ -80,7 +91,8 @@ else:
         print(f"{Colors.YELLOW}[WARN]  ComfyUI not found at default location: {COMFYUI_DIR}{Colors.RESET}")
         print(f"{Colors.YELLOW}       Specify correct path with --comfyui_dir \"path\\to\\ComfyUI\"{Colors.RESET}")
 
-PIP_ARGS = ["--no-cache-dir", "--no-warn-script-location", "--timeout=1000", "--retries=20", "--use-pep517"]
+# --use-pep517 removed: uv supports PEP 517 builds by default
+PIP_ARGS = ["--no-cache"]
 
 # ----------------------------- Model URLs and manifests -----------------------------
 BASE_URL_DINOV3 = "https://huggingface.co/PIA-SPACE-LAB/dinov3-vitl-pretrain-lvd1689m/resolve/main"
@@ -377,14 +389,8 @@ def install_triton():
     """Install triton-windows using pip with auto-detected version."""
     pkg_spec = get_triton_package_spec()
     write_status(f"Installing {pkg_spec}...", "INFO")
-    cmd = [PYTHON_EXE, "-m", "pip", "install", "-U", pkg_spec] + PIP_ARGS
-    process = subprocess.Popen(cmd)
-    process.wait()
-    if process.returncode != 0:
-        write_status(f"Triton installation failed (exit code {process.returncode}).", "WARN")
-        return False
-    write_status("Triton installed successfully.", "SUCCESS")
-    return True
+    cmd = [UV_EXE, "pip", "install", "--python", PYTHON_EXE, "-U", pkg_spec] + PIP_ARGS
+    return run_command_live(cmd, check=False) == 0
 
 def test_triton():
     """Run a basic Triton kernel test and return True if successful."""
@@ -439,10 +445,10 @@ else:
 
 # ----------------------------- Installation stages -----------------------------
 def step_check_environment():
-    write_step("Checking Python Environment (Conda)", 1, 8)
+    write_step("Checking Python Environment (uv/venv)", 1, 8)
     if not os.path.exists(PYTHON_EXE):
         write_status(f"Python not found at {PYTHON_EXE}", "ERROR")
-        write_status("Make sure Trellis2 is installed in the correct Conda environment", "WARN")
+        write_status("Make sure Trellis2 is installed in the correct uv/venv environment", "WARN")
         write_status("You can specify the correct path using: --env_path \"path\\to\\python.exe\"", "INFO")
         input("Press Enter to exit...")
         sys.exit(1)
@@ -458,10 +464,10 @@ def step_check_comfyui():
     write_status(f"ComfyUI found: {COMFYUI_DIR}", "SUCCESS")
 
 def step_check_comfyui_status():
-    write_step("Checking ComfyUI Status (Port 8188)", 3, 8)
+    write_step(f"Checking ComfyUI Status (Port {args.port})", 3, 8)
     try:
-        if socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect_ex(('127.0.0.1', 8188)) == 0:
-            write_status("ComfyUI is already running on port 8188. Please close it first.", "WARN")
+        if socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect_ex(('127.0.0.1', args.port)) == 0:
+            write_status(f"ComfyUI is already running on port {args.port}. Please close it first.", "WARN")
             input("Press Enter to exit...")
             sys.exit(1)
         else:
@@ -481,9 +487,9 @@ def step_install_custom_node():
     req_path = os.path.join(trellis_node, "requirements.txt")
     if os.path.exists(req_path):
         write_status("Installing Python dependencies from requirements.txt...", "INFO")
-        run_command_live([PYTHON_EXE, "-m", "pip", "install", "-r", req_path, "--no-deps"] + PIP_ARGS)
+        run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "-r", req_path, "--no-deps"] + PIP_ARGS)
     write_status("Upgrading huggingface_hub...", "INFO")
-    run_command_live([PYTHON_EXE, "-m", "pip", "install", "--upgrade", "huggingface_hub", "--no-deps"] + PIP_ARGS)
+    run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "--upgrade", "huggingface_hub", "--no-deps"] + PIP_ARGS)
     write_status("Custom node installed successfully", "SUCCESS")
 
 def step_install_wheels():
@@ -523,7 +529,7 @@ def step_install_wheels():
                 write_status(f"Failed to download {wheel_name}: {e}", "WARN")
                 continue
         write_status(f"Installing {wheel_name}...", "INFO")
-        run_command_live([PYTHON_EXE, "-m", "pip", "install", wheel_path, "--no-deps"])
+        run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, wheel_path, "--no-deps"])
     write_status("All wheels installed successfully", "SUCCESS")
 
 def step_install_triton():
@@ -581,11 +587,11 @@ def step_apply_patches():
         except Exception as e:
             write_status(f"Failed to patch remeshing.py: {e}", "WARN")
 
-    run_command_live([PYTHON_EXE, "-m", "pip", "install", "--upgrade", "pooch", "--no-deps"] + PIP_ARGS)
+    run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "--upgrade", "pooch", "--no-deps"] + PIP_ARGS)
     result = subprocess.run([PYTHON_EXE, "-c", "import numpy, sys; sys.exit(0 if numpy.__version__ == '1.26.4' else 1)"])
     if result.returncode != 0:
         write_status("Restoring numpy 1.26.4 for compatibility...", "INFO")
-        run_command_live([PYTHON_EXE, "-m", "pip", "install", "--force-reinstall", "numpy==1.26.4", "--no-deps"] + PIP_ARGS)
+        run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "--force-reinstall", "numpy==1.26.4", "--no-deps"] + PIP_ARGS)
     write_status("All patches applied successfully", "SUCCESS")
 
 # ----------------------------- Main -----------------------------
@@ -595,7 +601,7 @@ def main():
     print("")
     print(f"{Colors.GREEN}==========================================={Colors.RESET}")
     print(f"{Colors.YELLOW}  Trellis2 GGUF Installer v{VERSION}{Colors.RESET}")
-    print(f"{Colors.GREEN}  ComfyUI Conda Environment Edition{Colors.RESET}")
+    print(f"{Colors.GREEN}  ComfyUI uv Environment Edition{Colors.RESET}")
     print(f"{Colors.GREEN}==========================================={Colors.RESET}")
     print("")
 
