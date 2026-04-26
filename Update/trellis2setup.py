@@ -26,6 +26,9 @@
 #   [*] Replaced Conda with uv (astral-sh/uv) as package manager
 #   [*] All pip install calls replaced with uv pip install
 #   [*] Removed --use-pep517 flag (uv supports PEP 517 by default)
+#
+# Patchnote v1.0.8 (By Soror L.'.L.'.):       
+#   [+] Added dirty patch nvdiffrast int32 for tri/faces in nodes.py
 # ---------------------------------------------------------
 
 import os
@@ -592,6 +595,34 @@ def step_apply_patches():
     if result.returncode != 0:
         write_status("Restoring numpy 1.26.4 for compatibility...", "INFO")
         run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "--force-reinstall", "numpy==1.26.4", "--no-deps"] + PIP_ARGS)
+
+    # ----- dirty patch nvdiffrast int32 для tri/faces -----  # <-- добавлено
+    trellis_node = os.path.join(COMFYUI_DIR, "custom_nodes", "ComfyUI-Trellis2-GGUF")
+    nodes_py = os.path.join(trellis_node, "nodes.py")
+    if os.path.exists(nodes_py):
+        write_status("Applying dirty patch nvdiffrast int32 for tri/faces...", "INFO")
+        try:
+            with open(nodes_py, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            patch_line = 'out_faces_int32 = out_faces.to(torch.int32)\n'
+            if patch_line in lines:
+                write_status("Dirty patch already applied, skipping.", "INFO")
+            else:
+                # Вставка перед оригинальной строкой 1947
+                insert_index = 1946  # 0-based, чтобы новая строка стала 1947
+                if len(lines) >= insert_index:
+                    lines.insert(insert_index, patch_line)
+                    with open(nodes_py, 'w', encoding='utf-8') as f:
+                        f.writelines(lines)
+                    write_status("Dirty patch nvdiffrast int32 for tri/faces applied successfully.", "SUCCESS")
+                else:
+                    write_status(f"nodes.py содержит {len(lines)} строк, меньше 1947. Ручная вставка не выполнена.", "WARN")
+        except Exception as e:
+            write_status(f"Ошибка применения dirty patch: {e}", "WARN")
+    else:
+        write_status(f"nodes.py не найден по пути {nodes_py}", "WARN")
+    # ---------------------------------------------------------
+
     write_status("All patches applied successfully", "SUCCESS")
 
 # ----------------------------- Main -----------------------------
