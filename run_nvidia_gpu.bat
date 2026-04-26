@@ -1,9 +1,27 @@
 @echo off
 chcp 65001 >nul
 title TRELLIS2 Portable Launcher by L.'.L.'.
+:: ==========================================================
+:: TRELLIS2 Portable Launcher
+:: ==========================================================
+:: Version: 1.1.0
+:: Author:  Soror L.'.L.'.
+:: Updated: 2026-04-26
+::
+:: Patchnote v1.1.0 (By Soror L.'.L.'.):
+::   [+] Added Pixi support for isolated environments (comfy-env)
+::   [+] Added automatic PATH update for .\Bin\pixi.exe
+::   [+] Added [INFO]/[WARN] messages for Pixi availability
+::   [*] Preserved all original environment variables and startup logic
+::
+:: Patchnote v1.0.0 (By Soror L.'.L.'.):
+::   [+] Initial release
+:: ==========================================================
 cd /d "%~dp0"
 
 :: ==========================================================
+:: ==========================================================
+echo  ======================================================
 echo.
 echo   ██▓        ██▓    ██▓        ██▓
 echo  ▓██▒              ▓██▒
@@ -18,6 +36,16 @@ echo.
 echo  ======================================================
 echo    TRELLIS2 Portable ComfyUI Launcher by Soror L.'.L.'.
 echo.
+:: ==========================================================
+:: === Pixi set PATH ===
+if exist "%~dp0Bin\pixi.exe" (
+    set "PATH=%~dp0Bin;%PATH%"
+    echo [INFO] Pixi found in Bin and added to PATH.
+) else (
+    echo "[WARN] Pixi not found in Bin. Isolated environments (comfy-env) may fail."
+    echo "[INFO] Please ensure pixi.exe is placed in the \"Bin\" folder next to this launcher."
+)
+:: ==========================================================
 
 :: === Proxy for all HTTP/HTTPS requests (including HF, pip, requests, urllib, etc.). Uncomment it if you use a proxy for internet connection
 :: set HTTP_PROXY=http://127.0.0.1:18080 

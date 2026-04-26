@@ -1,5 +1,13 @@
 # Файл конфигурации установщика ComfyUI Portable
 # Измените список нодов или ссылки на колеса здесь.
+# \settings.yaml
+# Version: 1.0.0
+# Author:  Soror L.'.L.'.
+# Updated: 2026-04-25
+#
+# Patchnote v1.0.0 (By Soror L.'.L.'.):
+#   [+] Initial release
+
 
 installer_version: "0.2.0"
 note: "Портативная сборка с локальным кэшем колес"
@@ -34,6 +42,8 @@ nodes:
     name: "comfyui-manager"
   - url: "https://github.com/WASasquatch/was-node-suite-comfyui"
     name: "was-node-suite-comfyui"
+  - url: "https://github.com/PozzettiAndrea/ComfyUI-Env-Manager"
+    name: "ComfyUI-Env-Manager" 
   - url: "https://github.com/yolain/ComfyUI-Easy-Use"
     name: "ComfyUI-Easy-Use"
   - url: "https://github.com/Fannovel16/comfyui_controlnet_aux"
@@ -96,8 +106,6 @@ nodes:
     name: "cg-use-everywhere"
 #  - url: "https://github.com/visualbruno/ComfyUI-Trellis2"
 #    name: "ComfyUI-Trellis2"
-  - url: "https://github.com/PozzettiAndrea/ComfyUI-Env-Manager"
-    name: "ComfyUI-Env-Manager" 
   - url: "https://github.com/PozzettiAndrea/ComfyUI-Pulse-MeshAudit"
     name: "ComfyUI-Pulse-MeshAudit"
   - url: "https://github.com/PozzettiAndrea/ComfyUI-GeometryPack"
@@ -114,3 +122,6 @@ pypi_packages:
   - name: "flet"
   - name: "plyfile"
   - name: "zstandard"
+  - name: "libigl"
+    url: "https://files.pythonhosted.org/packages/97/8b/77405e7076e218351a14c1561f2a324b499df8dd3711a517e5d082ed1c77/libigl-2.6.1-cp312-abi3-win_amd64.whl"
+  

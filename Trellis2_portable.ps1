@@ -1,13 +1,63 @@
-﻿<#
-.SYNOPSIS
-    ComfyUI Installer v0.3.1 (PyTorch via Index, English UI)
-    Stage numbering and localized to English.
-    
-    Version: 0.3.1
-    Author: Soror L.'.L.'. (Modified by pytraveler)
-#>
-
+﻿#
 # ==========================================
+# SYNOPSIS
+#     ComfyUI Installer v0.4.0 (PyTorch via Index, English UI)
+#     Portable installer with uv + Pixi support for isolated environments (comfy-env)
+# ==========================================
+#
+# DESCRIPTION
+#     This script installs a fully portable ComfyUI environment:
+#       - Downloads uv package manager (lightweight, fast) and creates a Python venv.
+#       - Downloads and installs Pixi into the "Bin" folder for nodes that require
+#         isolated sub‑environments (e.g., ComfyUI-GeometryPack, Pulse-MeshAudit).
+#       - Installs PyTorch 2.8 + cu128 from the PyTorch index.
+#       - Installs custom wheels (xFormers, llama_cpp_python, etc.) from a local cache.
+#       - Clones and installs custom nodes listed in settings.yaml.
+#       - Applies helper files (Supp.tar.gz, xformers, flash_attn) and runs Trellis2 setup.
+#
+#     The resulting installation is self‑contained and portable – can be moved to any
+#     folder or drive. Pixi is made available during installation and at runtime
+#     via the companion "launch_comfyui.bat" (or manually added to PATH).
+#
+# ==========================================
+# VERSION
+#     0.4.0
+# ==========================================
+# AUTHOR
+#     Soror L.'.L.'. (Original)
+#     Ported by pytraveler to UV instead of Conda
+# ==========================================
+# UPDATED
+#     2026-04-26
+# ==========================================
+#
+# CHANGELOG
+#
+# v0.4.0 (2026-04-26 by Soror L.'.L.'.)
+#   [+] Added Pixi installation into .\Bin\ folder
+#   [+] Added Get-TargetTriple function for architecture detection
+#   [+] Added automatic PATH update for current PowerShell session
+#   [+] Added version verification after Pixi installation
+#   [*] No changes to existing stages (0-10) – fully backward compatible
+#   [*] Installer now speaks [INFO], [WARN], [SUCCESS] messages in English
+#
+# v0.3.1 (by pytraveler)
+#   Initial port to UV
+#
+# ==========================================
+# USAGE
+#     1. Place settings.yaml next to this script.
+#     2. Run Trellis2_portable.ps1 (right‑click "Run with PowerShell").
+#     3. After installation, use launch_comfyui.bat to start ComfyUI.
+#
+# NOTES
+#     - Git must be installed and accessible via PATH.
+#     - Internet connection required for first‑run downloads.
+#     - The script creates comfy_env/ (Python venv) and ComfyUI/ (source).
+#     - Pixi is placed inside Bin/ – the launcher batch file adds it to PATH automatically.
+#
+# ==========================================
+# 
 # === Path & Init ===
  $ScriptPath = $PSScriptRoot
 if (-not $ScriptPath) { $ScriptPath = "." }
@@ -137,6 +187,29 @@ function Get-OrDownload-Wheel {
     return $filePath
 }
 
+# === Add Get-TargetTriple function for Pixi ===
+function Get-TargetTriple() {
+  try {
+    $a = [System.Reflection.Assembly]::LoadWithPartialName("System.Runtime.InteropServices.RuntimeInformation")
+    $t = $a.GetType("System.Runtime.InteropServices.RuntimeInformation")
+    $p = $t.GetProperty("OSArchitecture")
+    switch ($p.GetValue($null).ToString())
+    {
+      "X86" { return "i686-pc-windows-msvc" }
+      "X64" { return "x86_64-pc-windows-msvc" }
+      "Arm" { return "thumbv7a-pc-windows-msvc" }
+      "Arm64" { return "aarch64-pc-windows-msvc" }
+    }
+  } catch {
+    Write-Verbose "Get-TargetTriple: falling back to Is64BitOperatingSystem."
+    if ([System.Environment]::Is64BitOperatingSystem) {
+      return "x86_64-pc-windows-msvc"
+    } else {
+      return "i686-pc-windows-msvc"
+    }
+  }
+}
+
 # === Header ===
 Write-Host " ===========================================	" -ForegroundColor Green
 Write-Host ""
@@ -181,7 +254,6 @@ if (-not (Test-Path $UvExePath)) {
     Expand-Archive -Path $uvZip -DestinationPath $uvTmp -Force
     $extractedDir = Get-ChildItem -Path $uvTmp -Directory | Select-Object -First 1
     if (-not $extractedDir) {
-        # Files are directly in uv_tmp, no subdirectory
         $extractedDir = @{ FullName = $uvTmp }
     }
     Copy-Item (Join-Path $extractedDir.FullName "uv.exe") $UvExePath
@@ -191,6 +263,90 @@ if (-not (Test-Path $UvExePath)) {
     Write-Status "uv $UvVersion extracted successfully." "SUCCESS"
 } else {
     Write-Status "uv.exe already exists, skipping download." "SUCCESS"
+}
+
+# === 0b. Download and install Pixi into Bin folder ===
+Write-Status "Installing Pixi package manager into 'Bin' folder..." "INFO"
+
+$PixiVersion = "latest"
+$PixiBinDir = Join-Path $ScriptPath "Bin"
+$PixiExePath = Join-Path $PixiBinDir "pixi.exe"
+
+if (-not (Test-Path $PixiExePath)) {
+    # Determine architecture
+    $ARCH = Get-TargetTriple
+    if (-not @("x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc") -contains $ARCH) {
+        Write-Status "Unsupported architecture for Pixi: $ARCH" "ERROR"
+        Read-Host "Press Enter to exit"
+        exit 1
+    }
+    $BINARY = "pixi-$ARCH"
+    $PixiRepourl = "https://github.com/prefix-dev/pixi"
+    if ($PixiVersion -eq 'latest') {
+        $DOWNLOAD_URL = "$PixiRepourl/releases/latest/download/$BINARY.zip"
+    } else {
+        $PixiVersion = "v" + ($PixiVersion -replace '^v', '')
+        $DOWNLOAD_URL = "$PixiRepourl/releases/download/$PixiVersion/$BINARY.zip"
+    }
+
+    Write-Status "Downloading Pixi from $DOWNLOAD_URL..." "INFO"
+    $pixiZip = Join-Path $ScriptPath "pixi.zip"
+    try {
+        Invoke-WebRequest -Uri $DOWNLOAD_URL -OutFile $pixiZip -ErrorAction Stop
+    } catch {
+        Write-Status "Download failed: $($_.Exception.Message)" "ERROR"
+        Remove-Item $pixiZip -Force -ErrorAction SilentlyContinue
+        Read-Host "Press Enter to exit"
+        exit 1
+    }
+
+    if ((Test-Path $pixiZip) -and (Get-Item $pixiZip).Length -lt 1000) {
+        Write-Status "Downloaded file is too small, likely an error page. Cleaning up..." "ERROR"
+        Remove-Item $pixiZip -Force -ErrorAction SilentlyContinue
+        Read-Host "Press Enter to exit"
+        exit 1
+    }
+
+    # Create Bin directory if not exists
+    if (-not (Test-Path $PixiBinDir)) {
+        New-Item -ItemType Directory -Force -Path $PixiBinDir | Out-Null
+    }
+
+    # Extract pixi.exe from zip
+    Expand-Archive -Path $pixiZip -DestinationPath $PixiBinDir -Force
+    Remove-Item $pixiZip -Force
+
+    # The zip contains pixi.exe directly, no subfolder
+    if (-not (Test-Path $PixiExePath)) {
+        # Sometimes the zip extracts to a subfolder, find it
+        $extractedPixi = Get-ChildItem -Path $PixiBinDir -Filter "pixi.exe" -Recurse | Select-Object -First 1
+        if ($extractedPixi) {
+            Move-Item -Path $extractedPixi.FullName -Destination $PixiExePath -Force
+            # Clean up possible remaining subfolders
+            Get-ChildItem -Path $PixiBinDir -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        } else {
+            Write-Status "pixi.exe not found after extraction. Installation failed." "ERROR"
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+    }
+    Write-Status "Pixi downloaded and extracted to $PixiBinDir" "SUCCESS"
+} else {
+    Write-Status "Pixi already exists at $PixiExePath, skipping download." "SUCCESS"
+}
+
+# Add Bin folder to PATH for current session (so that installer sees pixi)
+$env:Path = "$PixiBinDir;$env:Path"
+Write-Status "Added $PixiBinDir to PATH for this session." "SUCCESS"
+
+# Verify pixi works
+try {
+    $pixiVersionOutput = & $PixiExePath --version
+    Write-Status "Pixi version: $pixiVersionOutput" "SUCCESS"
+} catch {
+    Write-Status "Failed to execute pixi.exe. Please check the installation." "ERROR"
+    Read-Host "Press Enter to exit"
+    exit 1
 }
 
 # === 1. Check Deps ===
@@ -235,21 +391,17 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 # Create compatibility entry point: comfy_env\python.exe → comfy_env\Scripts\python.exe
-# This allows all existing .bat files and Python scripts to use the old Conda-style path
 $pythonTarget = Join-Path $EnvDirPath "Scripts\python.exe"
 $pythonLink = Join-Path $EnvDirPath "python.exe"
 if (-not (Test-Path $pythonLink)) {
-    # Try hardlink first, fall back to .bat wrapper
     $hardlinkCreated = $false
     try {
         $null = New-Item -ItemType HardLink -Path $pythonLink -Target $pythonTarget -ErrorAction Stop
         Write-Status "Created hardlink: python.exe -> Scripts\python.exe" "SUCCESS"
         $hardlinkCreated = $true
     } catch {
-        # Hardlink failed
     }
     if (-not $hardlinkCreated) {
-        # Create .bat wrapper as fallback
         Set-Content -Path $pythonLink -Value "@`"%~dp0Scripts\python.exe`" %*" -Encoding ASCII
         Write-Status "Created .bat wrapper: python.exe -> Scripts\python.exe (hardlink unavailable)" "WARN"
     }
@@ -281,12 +433,10 @@ Invoke-UvPipInstall "pygit2 $PIPargs"
 Write-Step "Installing PyPI Packages..." 6 10
 if ($yamlText -match "pypi_packages:([\s\S]*?)(?=\Z|wheels:|nodes:)") {
     $pypiBlock = $matches[1]
-    # Simple packages
     $simpleMatches = [regex]::Matches($pypiBlock, "- name:\s*`"([a-zA-Z0-9_-]+)`"(?!.*url:)")
     foreach ($m in $simpleMatches) {
         Invoke-UvPipInstall "$($m.Groups[1].Value) $PIPargs"
     }
-    # URL packages
     $urlMatches = [regex]::Matches($pypiBlock, "- name:\s*`"([a-zA-Z0-9_-]+)`"\s+url:\s*`"([^`"]+)`"")
     foreach ($m in $urlMatches) {
         $name = $m.Groups[1].Value
@@ -326,14 +476,11 @@ Write-Step "Processing Helper Files..." 8 10
 if (Test-Path "Supp.tar.gz") {
     Write-Status "Extracting Supp.tar.gz to ComfyUI directory..." "INFO"
     
-    # Создаём временную папку для распаковки
     $tempExtractDir = Join-Path $env:TEMP "Supp_extract_$(Get-Random)"
     New-Item -ItemType Directory -Force -Path $tempExtractDir | Out-Null
     
-    # Распаковываем архив во временную папку
     tar.exe -xzf "Supp.tar.gz" -C $tempExtractDir
     
-    # Копируем содержимое Supp/ComfyUI/ в целевую папку ComfyUI с заменой
     $sourceSupp = Join-Path $tempExtractDir "Supp\ComfyUI"
     if (Test-Path $sourceSupp) {
         Copy-Item -Path "$sourceSupp\*" -Destination $ComfyDir -Recurse -Force
@@ -342,7 +489,6 @@ if (Test-Path "Supp.tar.gz") {
         Write-Status "Warning: Expected structure Supp/ComfyUI not found in archive" "WARN"
     }
     
-    # Очищаем временную папку
     Remove-Item -Path $tempExtractDir -Recurse -Force
 }
 
@@ -353,7 +499,6 @@ if (Test-Path "Supp.tar.gz") {
 if (Test-Path $xformersFile) {
     Write-Status "Extracting xformers-0.0.33.tar.gz to Python environment..." "INFO"
     
-    # Проверяем существование папки site-packages
     if (-not (Test-Path $sitePackagesPath)) {
         New-Item -ItemType Directory -Force -Path $sitePackagesPath | Out-Null
     }
@@ -371,7 +516,6 @@ if (Test-Path $xformersFile) {
 if (Test-Path $flashAttnFile) {
     Write-Status "Extracting flash_attn-2.8.2.tar.gz to Python environment..." "INFO"
     
-    # Проверяем существование папки site-packages
     if (-not (Test-Path $sitePackagesPath)) {
         New-Item -ItemType Directory -Force -Path $sitePackagesPath | Out-Null
     }
