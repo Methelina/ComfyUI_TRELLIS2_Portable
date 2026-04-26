@@ -94,8 +94,14 @@ nodes:
     name: "ComfyUI-RMBG"
   - url: "https://github.com/chrisgoringe/cg-use-everywhere"
     name: "cg-use-everywhere"
-  - url: "https://github.com/visualbruno/ComfyUI-Trellis2"
-    name: "ComfyUI-Trellis2"
+#  - url: "https://github.com/visualbruno/ComfyUI-Trellis2"
+#    name: "ComfyUI-Trellis2"
+  - url: "https://github.com/PozzettiAndrea/ComfyUI-Env-Manager"
+    name: "ComfyUI-Env-Manager" 
+  - url: "https://github.com/PozzettiAndrea/ComfyUI-Pulse-MeshAudit"
+    name: "ComfyUI-Pulse-MeshAudit"
+  - url: "https://github.com/PozzettiAndrea/ComfyUI-GeometryPack"
+    name: "ComfyUI-GeometryPack"    
 
 # Дополнительные библиотеки (обычные пакеты из pypi)
 pypi_packages:
