@@ -113,6 +113,8 @@ nodes:
 
 # Дополнительные библиотеки (обычные пакеты из pypi)
 pypi_packages:
+  - name: "libigl"
+    url: "https://files.pythonhosted.org/packages/97/8b/77405e7076e218351a14c1561f2a324b499df8dd3711a517e5d082ed1c77/libigl-2.6.1-cp312-abi3-win_amd64.whl"
   - name: "pygit2"
   - name: "pylatexenc"
     url: "https://www.piwheels.org/simple/pylatexenc/pylatexenc-3.0a32-py3-none-any.whl"
@@ -122,6 +124,5 @@ pypi_packages:
   - name: "flet"
   - name: "plyfile"
   - name: "zstandard"
-  - name: "libigl"
-    url: "https://files.pythonhosted.org/packages/97/8b/77405e7076e218351a14c1561f2a324b499df8dd3711a517e5d082ed1c77/libigl-2.6.1-cp312-abi3-win_amd64.whl"
+
   

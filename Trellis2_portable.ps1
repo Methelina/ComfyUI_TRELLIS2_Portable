@@ -1,7 +1,7 @@
 ﻿#
 # ==========================================
 # SYNOPSIS
-#     ComfyUI Installer v0.4.0 (PyTorch via Index, English UI)
+#     ComfyUI Installer v0.4.1 (PyTorch via Index, English UI)
 #     Portable installer with uv + Pixi support for isolated environments (comfy-env)
 # ==========================================
 #
@@ -13,6 +13,8 @@
 #       - Installs PyTorch 2.8 + cu128 from the PyTorch index.
 #       - Installs custom wheels (xFormers, llama_cpp_python, etc.) from a local cache.
 #       - Clones and installs custom nodes listed in settings.yaml.
+#       - Detects comfy-env.toml in custom nodes: if present, skips install.py
+#         and prints a Pixi environment notice (so nodes install in base env).
 #       - Applies helper files (Supp.tar.gz, xformers, flash_attn) and runs Trellis2 setup.
 #
 #     The resulting installation is self‑contained and portable – can be moved to any
@@ -21,17 +23,21 @@
 #
 # ==========================================
 # VERSION
-#     0.4.0
+#     0.4.1
 # ==========================================
 # AUTHOR
 #     Soror L.'.L.'. (Original)
 #     Ported by pytraveler to UV instead of Conda
 # ==========================================
 # UPDATED
-#     2026-04-26
+#     2026-04-27
 # ==========================================
 #
 # CHANGELOG
+#
+# v0.4.1 (2026-04-27 by Soror L.'.L.'.)
+#   [+] Custom nodes with comfy-env.toml now skip install.py and show Pixi notice
+#   [*] Update header and version number
 #
 # v0.4.0 (2026-04-26 by Soror L.'.L.'.)
 #   [+] Added Pixi installation into .\Bin\ folder
@@ -55,6 +61,8 @@
 #     - Internet connection required for first‑run downloads.
 #     - The script creates comfy_env/ (Python venv) and ComfyUI/ (source).
 #     - Pixi is placed inside Bin/ – the launcher batch file adds it to PATH automatically.
+#     - Custom nodes with comfy-env.toml will only get requirements.txt installed;
+#       their install.py is skipped. Run "Comfy-Env_Setup.bat" later to set up Pixi envs.
 #
 # ==========================================
 # 
@@ -458,14 +466,26 @@ foreach ($node in $nodeList) {
     Write-Host "   > Cloning: $($node.name)" -ForegroundColor Cyan
     git clone $node.url "$ComfyDir\custom_nodes\$($node.name)" 2>$null | Out-Null
 
-    $reqPath = "$ComfyDir\custom_nodes\$($node.name)\requirements.txt"
+    $nodeDir = "$ComfyDir\custom_nodes\$($node.name)"
+
+    # Установка из requirements.txt (всегда)
+    $reqPath = Join-Path $nodeDir "requirements.txt"
     if (Test-Path $reqPath) {
         Invoke-UvPipInstall "-r `"$reqPath`" $PIPargs"
     }
 
-    $installPath = "$ComfyDir\custom_nodes\$($node.name)\install.py"
-    if (Test-Path $installPath) {
-        Invoke-PythonCommand "`"$installPath`""
+    # Проверка на наличие comfy-env.toml (признак Pixi environment)
+    $comfyEnvToml = Join-Path $nodeDir "comfy-env.toml"
+    if (Test-Path $comfyEnvToml) {
+        Write-Host "   [Pixie] Comfy-Env setup.py dectected at `"$($node.name)`"" -ForegroundColor Yellow
+        Write-Host "   [Pixie] Create Comfy-Env Ignored - you can setup it lated via `"Comfy-Env_Setup.bat`"" -ForegroundColor Yellow
+        # install.py пропускается полностью
+    }
+    else {
+        $installPath = Join-Path $nodeDir "install.py"
+        if (Test-Path $installPath) {
+            Invoke-PythonCommand "`"$installPath`""
+        }
     }
 }
 
