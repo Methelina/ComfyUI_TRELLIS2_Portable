@@ -575,6 +575,7 @@ def step_apply_patches():
         if not os.path.exists(site_packages):
             site_packages = os.path.join(py_dir, "..", "Lib", "site-packages")
 
+    # ---------- 1. Patch remeshing.py ----------
     remesh_path = os.path.join(site_packages, "cumesh", "remeshing.py")
     if os.path.exists(remesh_path):
         backup_path = remesh_path + ".bak"
@@ -590,48 +591,101 @@ def step_apply_patches():
         except Exception as e:
             write_status(f"Failed to patch remeshing.py: {e}", "WARN")
 
+    # ---------- 2. Upgrade pooch, ensure numpy 1.26.4 ----------
     run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "--upgrade", "pooch", "--no-deps"] + PIP_ARGS)
     result = subprocess.run([PYTHON_EXE, "-c", "import numpy, sys; sys.exit(0 if numpy.__version__ == '1.26.4' else 1)"])
     if result.returncode != 0:
         write_status("Restoring numpy 1.26.4 for compatibility...", "INFO")
         run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "--force-reinstall", "numpy==1.26.4", "--no-deps"] + PIP_ARGS)
 
-    # ----- dirty patch nvdiffrast int32 для tri/faces -----
+    # ---------- 3. Dirty patch nvdiffrast int32 for tri/faces ----------
     trellis_node = os.path.join(COMFYUI_DIR, "custom_nodes", "ComfyUI-Trellis2-GGUF")
     nodes_py = os.path.join(trellis_node, "nodes.py")
-    if os.path.exists(nodes_py):
+    if not os.path.exists(nodes_py):
+        write_status(f"nodes.py not found at {nodes_py}", "WARN")
+    else:
         write_status("Applying dirty patch nvdiffrast int32 for tri/faces...", "INFO")
         try:
-            with open(nodes_py, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-            
-            # Проверяем, не применён ли уже патч
-            if any('out_faces_int32 = out_faces.to(torch.int32)' in line for line in lines):
-                write_status("Dirty patch already applied, skipping.", "INFO")
-            else:
-                insert_index = 1946  # 0-индекс строки 1947 (перед ней вставляем)
-                if len(lines) >= insert_index:
-                    # Гарантируем, что предыдущая строка заканчивается на \n
-                    if insert_index > 0 and not lines[insert_index-1].endswith('\n'):
-                        lines[insert_index-1] += '\n'
-                    
-                    # Вставляемая строка с \n
-                    patch_line = 'out_faces_int32 = out_faces.to(torch.int32)\n'
-                    lines.insert(insert_index, patch_line)
-                    
-                    # Опционально: добавить пустую строку после для читаемости (не обязательно)
-                    # lines.insert(insert_index+1, '\n')
-                    
-                    with open(nodes_py, 'w', encoding='utf-8') as f:
-                        f.writelines(lines)
-                    write_status("Dirty patch nvdiffrast int32 for tri/faces applied successfully.", "SUCCESS")
-                else:
-                    write_status(f"nodes.py содержит {len(lines)} строк, что меньше 1947. Вставка не выполнена.", "WARN")
+            # Читаем файл, определяем символ(ы) перевода строки
+            with open(nodes_py, 'r', encoding='utf-8', newline='') as f:
+                content = f.read()
         except Exception as e:
-            write_status(f"Ошибка применения dirty patch: {e}", "WARN")
-    else:
-        write_status(f"nodes.py не найден по пути {nodes_py}", "WARN")
-    # ---------------------------------------------------------
+            write_status(f"Failed to read nodes.py: {e}", "WARN")
+            content = None
+
+        if content is not None:
+            nl = '\r\n' if '\r\n' in content else '\n'
+            lines = content.splitlines(keepends=True)
+
+            SEARCH_START = 1940
+            SEARCH_END = 1955
+            if len(lines) < SEARCH_END:
+                write_status(
+                    f"nodes.py contains only {len(lines)} lines, expected at least {SEARCH_END}. Patch skipped.",
+                    "WARN"
+                )
+            else:
+                # Ищем ориентировочную строку в диапазоне
+                marker = 'out_normals = cumesh.read_vertex_normals()[out_vmaps]'
+                marker_idx = None
+                for i in range(SEARCH_START, min(SEARCH_END, len(lines))):
+                    if marker in lines[i]:
+                        marker_idx = i
+                        break
+
+                if marker_idx is None:
+                    write_status(f"Orientation line '{marker}' not found in lines {SEARCH_START}-{SEARCH_END}.", "WARN")
+                else:
+                    # Ищем следующую значимую строку (должна быть print)
+                    target_print = 'print("Sampling attributes...")'
+                    next_significant = None
+                    for j in range(marker_idx + 1, min(SEARCH_END, len(lines))):
+                        if lines[j].strip():
+                            next_significant = j
+                            break
+                    if next_significant is None or target_print not in lines[next_significant]:
+                        write_status(f"Expected '{target_print}' after orientation not found in range.", "WARN")
+                    else:
+                        # Проверяем, нет ли уже патча между ориент. и print
+                        patch_text = 'out_faces_int32 = out_faces.to(torch.int32)'
+                        already_patched = False
+                        for k in range(marker_idx + 1, next_significant):
+                            if patch_text in lines[k]:
+                                already_patched = True
+                                break
+                        if already_patched:
+                            write_status("Dirty patch already applied, skipping.", "INFO")
+                        else:
+                            # Извлекаем отступ из строки-ориентира
+                            indent = ''
+                            for ch in lines[marker_idx]:
+                                if ch in (' ', '\t'):
+                                    indent += ch
+                                else:
+                                    break
+                            empty_line = nl
+                            patch_line = f'{indent}{patch_text}{nl}'
+
+                            # Вставляем пустую строку и патч после ориентира
+                            lines.insert(marker_idx + 1, empty_line)
+                            lines.insert(marker_idx + 2, patch_line)
+
+                            # Если строка, ранее следовавшая за ориентиром, не пуста,
+                            # добавляем ещё одну пустую строку перед ней (после патча)
+                            # после вставки двух строк бывшая marker_idx+1 стала marker_idx+3
+                            after_patch_idx = marker_idx + 3
+                            if after_patch_idx < len(lines) and lines[after_patch_idx].strip():
+                                lines.insert(after_patch_idx, empty_line)
+
+                            # Сохраняем
+                            try:
+                                with open(nodes_py, 'w', encoding='utf-8', newline='') as f:
+                                    f.write(''.join(lines))
+                                write_status("Dirty patch applied successfully.", "SUCCESS")
+                            except Exception as e:
+                                write_status(f"Failed to write nodes.py: {e}", "WARN")
+        else:
+            write_status("Could not read nodes.py content.", "WARN")
 
     write_status("All patches applied successfully", "SUCCESS")
 

@@ -1,8 +1,9 @@
-﻿#
+﻿﻿#
 # ==========================================
 # SYNOPSIS
-#     ComfyUI Installer v0.4.1 (PyTorch via Index, English UI)
+#     ComfyUI Installer v0.5.0 (PyTorch via Index, English UI)
 #     Portable installer with uv + Pixi support for isolated environments (comfy-env)
+#     FULL PORTABILITY: all caches and envs inside project folder
 # ==========================================
 #
 # DESCRIPTION
@@ -10,6 +11,8 @@
 #       - Downloads uv package manager (lightweight, fast) and creates a Python venv.
 #       - Downloads and installs Pixi into the "Bin" folder for nodes that require
 #         isolated sub‑environments (e.g., ComfyUI-GeometryPack, Pulse-MeshAudit).
+#       - Sets environment variables (PIXI_HOME, PIXI_ENV_DIR, PIXI_CACHE_DIR,
+#         RATTLER_CACHE_DIR, UV_CACHE_DIR, HF_HOME, etc.) to point inside the project.
 #       - Installs PyTorch 2.8 + cu128 from the PyTorch index.
 #       - Installs custom wheels (xFormers, llama_cpp_python, etc.) from a local cache.
 #       - Clones and installs custom nodes listed in settings.yaml.
@@ -23,7 +26,7 @@
 #
 # ==========================================
 # VERSION
-#     0.4.1
+#     0.5.0
 # ==========================================
 # AUTHOR
 #     Soror L.'.L.'. (Original)
@@ -34,6 +37,15 @@
 # ==========================================
 #
 # CHANGELOG
+#
+# v0.5.0 (2026-04-27 by Soror L.'.L.'.)
+#   [+] FULL ISOLATION: all cache and environment directories inside project
+#       - Added PIXI_HOME, PIXI_ENV_DIR, PIXI_CACHE_DIR
+#       - Added RATTLER_CACHE_DIR, UV_CACHE_DIR, HF_HOME
+#       - Added COMFY_CACHE_DIR for later use
+#   [+] Created .cache, .pixi_home, .pixi_envs subfolders automatically
+#   [*] No changes to existing stages (0-10) – fully backward compatible
+#   [*] Installer now completely portable – no writes to C:\Users\...
 #
 # v0.4.1 (2026-04-27 by Soror L.'.L.'.)
 #   [+] Custom nodes with comfy-env.toml now skip install.py and show Pixi notice
@@ -63,15 +75,58 @@
 #     - Pixi is placed inside Bin/ – the launcher batch file adds it to PATH automatically.
 #     - Custom nodes with comfy-env.toml will only get requirements.txt installed;
 #       their install.py is skipped. Run "Comfy-Env_Setup.bat" later to set up Pixi envs.
+#     - All cache directories are inside the project – fully portable.
 #
 # ==========================================
-# 
+
 # === Path & Init ===
- $ScriptPath = $PSScriptRoot
+$ScriptPath = $PSScriptRoot
 if (-not $ScriptPath) { $ScriptPath = "." }
 Set-Location $ScriptPath
- $SettingsFile = "settings.yaml"
- $WheelsDir = "wheels"
+
+# ==========================================
+# === PORTABILITY ISOLATION BLOCK (v0.5.0) ===
+# ==========================================
+# All environment variables are set BEFORE any uv/pixi operations
+# to ensure no data is written outside the project folder.
+
+# Create cache and state directories inside the project
+$CacheDir = Join-Path $ScriptPath ".cache"
+$PixiHomeDir = Join-Path $ScriptPath ".pixi_home"
+$PixiEnvsDir = Join-Path $ScriptPath ".pixi_envs"
+$RattlerCacheDir = Join-Path $CacheDir "rattler"
+$UvCacheDir = Join-Path $CacheDir "uv"
+$HfCacheDir = Join-Path $CacheDir "huggingface"
+$PixiCacheDir = Join-Path $CacheDir "pixi"
+$ComfyTempDir = Join-Path $CacheDir "ComfyUI"
+
+# Ensure all directories exist
+@($CacheDir, $PixiHomeDir, $PixiEnvsDir, $RattlerCacheDir, $UvCacheDir,
+  $HfCacheDir, $PixiCacheDir, $ComfyTempDir) | ForEach-Object {
+    if (-not (Test-Path $_)) {
+        New-Item -ItemType Directory -Force -Path $_ | Out-Null
+    }
+}
+
+# Set environment variables for the current PowerShell session
+$env:PIXI_HOME = $PixiHomeDir
+$env:PIXI_ENV_DIR = $PixiEnvsDir
+$env:PIXI_CACHE_DIR = $PixiCacheDir
+$env:RATTLER_CACHE_DIR = $RattlerCacheDir
+$env:UV_CACHE_DIR = $UvCacheDir
+$env:HF_HOME = $HfCacheDir
+$env:HF_HUB_DOWNLOAD_TIMEOUT = "60"
+$env:PIXI_NO_VERSION_CHECK = "1"
+
+# (Optional) For ComfyUI later – we'll keep the variable for reference
+# but actual --temp-directory will be set in launch script
+
+# ==========================================
+# === END OF ISOLATION BLOCK ===
+# ==========================================
+
+$SettingsFile = "settings.yaml"
+$WheelsDir = "wheels"
 
 # Load Config
 if (-not (Test-Path $SettingsFile)) {
@@ -79,16 +134,16 @@ if (-not (Test-Path $SettingsFile)) {
     exit 1
 }
 
- $yamlText = Get-Content $SettingsFile -Raw
+$yamlText = Get-Content $SettingsFile -Raw
 
 # 1. Extract Settings
- $config = @{}
- $config['env_name'] = if ($yamlText -match "env_name:\s*`"(.+?)`"") { $matches[1] } else { "comfy_env" }
- $config['python_version'] = if ($yamlText -match "python_version:\s*`"(.+?)`"") { $matches[1] } else { "3.12" }
- $config['comfy_dir'] = if ($yamlText -match "comfy_dir:\s*`"(.+?)`"") { $matches[1] } else { "ComfyUI" }
+$config = @{}
+$config['env_name'] = if ($yamlText -match "env_name:\s*`"(.+?)`"") { $matches[1] } else { "comfy_env" }
+$config['python_version'] = if ($yamlText -match "python_version:\s*`"(.+?)`"") { $matches[1] } else { "3.12" }
+$config['comfy_dir'] = if ($yamlText -match "comfy_dir:\s*`"(.+?)`"") { $matches[1] } else { "ComfyUI" }
 
 # 2. Extract Nodes
- $nodeList = @()
+$nodeList = @()
 if ($yamlText -match "nodes:([\s\S]*?)(?=wheels:|pypi_packages:|\Z)") {
     $nodeBlock = $matches[1]
     $matches = [regex]::Matches($nodeBlock, "- url:\s*`"([^`"]+)`"\s+name:\s*`"([^`"]+)`"")
@@ -98,7 +153,7 @@ if ($yamlText -match "nodes:([\s\S]*?)(?=wheels:|pypi_packages:|\Z)") {
 }
 
 # 3. Extract Wheels (Only xFormers now)
- $wheelList = @{}
+$wheelList = @{}
 if ($yamlText -match "wheels:([\s\S]*?)(?=nodes:|pypi_packages:|\Z)") {
     $wheelBlock = $matches[1]
     $entries = $wheelBlock -split "  [a-z_]+:", [System.StringSplitOptions]::RemoveEmptyEntries | Where-Object { $_ -match "url:" }
@@ -113,15 +168,15 @@ if ($yamlText -match "wheels:([\s\S]*?)(?=nodes:|pypi_packages:|\Z)") {
 }
 
 # === Vars ===
- $EnvName = $config['env_name']
- $ComfyDir = $config['comfy_dir']
- $UvVersion = "0.11.6"
- $UvZipUrl = "https://releases.astral.sh/github/uv/releases/download/$UvVersion/uv-x86_64-pc-windows-msvc.zip"
- $UvExePath = Join-Path $ScriptPath "uv.exe"
- $PythonExePath = Join-Path $ScriptPath "$EnvName\Scripts\python.exe"
- $PythonSymlinkPath = Join-Path $ScriptPath "$EnvName\python.exe"
+$EnvName = $config['env_name']
+$ComfyDir = $config['comfy_dir']
+$UvVersion = "0.11.6"
+$UvZipUrl = "https://releases.astral.sh/github/uv/releases/download/$UvVersion/uv-x86_64-pc-windows-msvc.zip"
+$UvExePath = Join-Path $ScriptPath "uv.exe"
+$PythonExePath = Join-Path $ScriptPath "$EnvName\Scripts\python.exe"
+$PythonSymlinkPath = Join-Path $ScriptPath "$EnvName\python.exe"
 # uv pip uses --no-cache instead of pip's --no-cache-dir
- $PIPargs = "--no-cache"
+$PIPargs = "--no-cache"
 
 # === Functions ===
 function Write-Status {
@@ -233,10 +288,9 @@ Write-Host "     ░  ░  ░    ░      ░  ░  ░    ░				" -Foreground
 Write-Host ""
 Write-Host "  ===========================================	" -ForegroundColor Green
 Write-Host "    ComfyUI TRELLIS2 by Soror L.'.L.'." -ForegroundColor Yellow
-Write-Host "    Portable Installer v0.1.2" -ForegroundColor Green
+Write-Host "    Portable Installer v0.5.0" -ForegroundColor Green
 Write-Host "  ===========================================	" -ForegroundColor Green
 Write-Host ""
-# ==========================================
 
 # === 0. Download uv ===
 Write-Step "Downloading uv Package Manager ($UvVersion)..." 0 10
@@ -359,7 +413,7 @@ try {
 
 # === 1. Check Deps ===
 Write-Step "Checking Dependencies (Git)..." 1 10
- $Missing = @()
+$Missing = @()
 if (!(Test-Command "git")) { $Missing += "Git" }
 
 if ($Missing.Count -gt 0) {
@@ -392,7 +446,7 @@ if (Test-Path $ComfyDir) {
 
 # === 3. Create Env ===
 Write-Step "Creating Python Environment with uv ($EnvName)..." 3 10
- $EnvDirPath = Join-Path $ScriptPath $EnvName
+$EnvDirPath = Join-Path $ScriptPath $EnvName
 & $UvExePath venv $EnvDirPath --python $config['python_version']
 if ($LASTEXITCODE -ne 0) {
     Write-Status "Failed to create environment." "ERROR"
@@ -418,7 +472,7 @@ Write-Status "Environment created." "SUCCESS"
 
 # === 4. Install PyTorch (Via Index) ===
 Write-Step "Installing PyTorch (Torch 2.8 + Torch 0.23 + Audio 2.8)..." 4 10
- $TorchCmd = "torch==2.8.0+cu128 torchvision==0.23.0+cu128 torchaudio==2.8.0+cu128 --extra-index-url https://download.pytorch.org/whl/cu128"
+$TorchCmd = "torch==2.8.0+cu128 torchvision==0.23.0+cu128 torchaudio==2.8.0+cu128 --extra-index-url https://download.pytorch.org/whl/cu128"
 Invoke-UvPipInstall $TorchCmd
 
 # === 5. Install Wheels (xFormers) ===
@@ -468,18 +522,18 @@ foreach ($node in $nodeList) {
 
     $nodeDir = "$ComfyDir\custom_nodes\$($node.name)"
 
-    # Установка из requirements.txt (всегда)
+    # Install from requirements.txt (always)
     $reqPath = Join-Path $nodeDir "requirements.txt"
     if (Test-Path $reqPath) {
         Invoke-UvPipInstall "-r `"$reqPath`" $PIPargs"
     }
 
-    # Проверка на наличие comfy-env.toml (признак Pixi environment)
+    # Check for comfy-env.toml (sign of Pixi environment)
     $comfyEnvToml = Join-Path $nodeDir "comfy-env.toml"
     if (Test-Path $comfyEnvToml) {
-        Write-Host "   [Pixie] Comfy-Env setup.py dectected at `"$($node.name)`"" -ForegroundColor Yellow
-        Write-Host "   [Pixie] Create Comfy-Env Ignored - you can setup it lated via `"Comfy-Env_Setup.bat`"" -ForegroundColor Yellow
-        # install.py пропускается полностью
+        Write-Host "   [Pixie] Comfy-Env setup.py detected at `"$($node.name)`"" -ForegroundColor Yellow
+        Write-Host "   [Pixie] Create Comfy-Env Ignored - you can setup it later via `"Comfy-Env_Setup.bat`"" -ForegroundColor Yellow
+        # install.py is skipped completely
     }
     else {
         $installPath = Join-Path $nodeDir "install.py"
@@ -492,7 +546,7 @@ foreach ($node in $nodeList) {
 # === 8. Helper Files ===
 Write-Step "Processing Helper Files..." 8 10
 
-# --- Обработка Supp.tar.gz ---
+# --- Process Supp.tar.gz ---
 if (Test-Path "Supp.tar.gz") {
     Write-Status "Extracting Supp.tar.gz to ComfyUI directory..." "INFO"
     
@@ -512,9 +566,9 @@ if (Test-Path "Supp.tar.gz") {
     Remove-Item -Path $tempExtractDir -Recurse -Force
 }
 
-# --- Обработка xformers-0.0.33.tar.gz ---
- $xformersFile = "update\xformers-0.0.33.tar.gz"
- $sitePackagesPath = "comfy_env\Lib\site-packages"
+# --- Process xformers-0.0.33.tar.gz ---
+$xformersFile = "update\xformers-0.0.33.tar.gz"
+$sitePackagesPath = "comfy_env\Lib\site-packages"
 
 if (Test-Path $xformersFile) {
     Write-Status "Extracting xformers-0.0.33.tar.gz to Python environment..." "INFO"
@@ -530,8 +584,8 @@ if (Test-Path $xformersFile) {
     Write-Status "xformers-0.0.33.tar.gz not found in update/, skipping..." "WARN"
 }
 
-# --- Обработка flash_attn-2.8.2.tar.gz ---
- $flashAttnFile = "update\flash_attn-2.8.2.tar.gz"
+# --- Process flash_attn-2.8.2.tar.gz ---
+$flashAttnFile = "update\flash_attn-2.8.2.tar.gz"
 
 if (Test-Path $flashAttnFile) {
     Write-Status "Extracting flash_attn-2.8.2.tar.gz to Python environment..." "INFO"

@@ -4,9 +4,18 @@ title TRELLIS2 Portable Launcher by L.'.L.'.
 :: ==========================================================
 :: TRELLIS2 Portable Launcher
 :: ==========================================================
-:: Version: 1.1.0
+:: Version: 1.2.0
 :: Author:  Soror L.'.L.'.
-:: Updated: 2026-04-26
+:: Updated: 2026-04-27
+::
+:: Patchnote v1.2.0 (By Soror L.'.L.'.):
+::   [+] FULL ISOLATION: all runtime data inside project folder
+::       - PIXI_HOME, PIXI_ENV_DIR, PIXI_CACHE_DIR
+::       - RATTLER_CACHE_DIR, UV_CACHE_DIR, HF_HOME
+::       - COMFY_CACHE_DIR (--temp-directory)
+::   [+] Added PIXI_NO_VERSION_CHECK to prevent auto-updates
+::   [*] Ensured no writes to C:\Users\... or %LOCALAPPDATA%
+::   [*] Now fully portable – can be moved to any drive/folder
 ::
 :: Patchnote v1.1.0 (By Soror L.'.L.'.):
 ::   [+] Added Pixi support for isolated environments (comfy-env)
@@ -45,6 +54,17 @@ if exist "%~dp0Bin\pixi.exe" (
     echo "[WARN] Pixi not found in Bin. Isolated environments (comfy-env) may fail."
     echo "[INFO] Please ensure pixi.exe is placed in the \"Bin\" folder next to this launcher."
 )
+:: ============== ENV VAR SET ==============================
+set SCRIPT_DIR=%~dp0
+set PIXI_HOME=%SCRIPT_DIR%.pixi_home
+set PIXI_ENV_DIR=%SCRIPT_DIR%.pixi_envs
+set PIXI_CACHE_DIR=%SCRIPT_DIR%.cache\pixi
+set RATTLER_CACHE_DIR=%SCRIPT_DIR%.cache\rattler
+set UV_CACHE_DIR=%SCRIPT_DIR%.cache\uv
+set HF_HOME=%SCRIPT_DIR%.cache\huggingface
+set COMFY_CACHE_DIR=%SCRIPT_DIR%.cache\ComfyUI_Cache
+set HF_HUB_DOWNLOAD_TIMEOUT=60
+set PIXI_NO_VERSION_CHECK=1
 :: ==========================================================
 
 :: === Proxy for all HTTP/HTTPS requests (including HF, pip, requests, urllib, etc.). Uncomment it if you use a proxy for internet connection
@@ -96,9 +116,11 @@ set FLASH_ATTENTION_FORCE_OPTIM=1
 :: echo [INFO] ComfyUI-Trellis2-GGUF update attempt completed.
 :: echo.
 
-:: === Environment activation and ComfyUI launch
-call ".\comfy_env\Scripts\activate.bat" && python -s -W ignore::FutureWarning ComfyUI\main.py --normalvram --cache-lru 6 --windows-standalone-build --listen --enable-cors-header --port %COMFYUI_PORT%
-::  --use-flash-attention
+:: === Environment activation and ComfyUI launch (fixed: quoted temp dir, removed inline comments) ===
+call ".\comfy_env\Scripts\activate.bat" && python -s -W ignore::FutureWarning ComfyUI\main.py --normalvram --cache-lru 6 --windows-standalone-build --listen --temp-directory "%COMFY_CACHE_DIR%" --enable-cors-header --port %COMFYUI_PORT% 
+
+:: Optional flags (uncomment if needed):
+:: --use-flash-attention
 :: --fast fp16_accumulation
 
 pause

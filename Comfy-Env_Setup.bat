@@ -5,16 +5,39 @@ title ComfyUI-Env Setup – Universal Installer for isolated environments
 :: ==========================================================
 :: TRELLIS2 Portable – Interactive installer for comfy-env nodes
 :: ==========================================================
-:: Version: 1.1.0
+:: Version: 1.2.0
 :: Author:  Soror L.'.L.'.
-:: Updated: 2026-04-26
+:: Updated: 2026-04-27
 ::
-:: Usage: just double-click or run from cmd
+:: Patchnote v1.2.0 (By Soror L.'.L.'):
+::   [+] Added full portability isolation block
+::       - PIXI_HOME, PIXI_ENV_DIR, PIXI_CACHE_DIR
+::       - RATTLER_CACHE_DIR, UV_CACHE_DIR, HF_HOME
+::       - PIXI_NO_VERSION_CHECK
+::   [*] Now all Pixi data stays inside project folder
+::   [*] Fixed potential "may was unexpected" errors
+::
+:: Patchnote v1.1.0 (By Soror L.'.L.'):
+::   [+] Initial release with interactive node setup
 :: ==========================================================
 
 setlocal enabledelayedexpansion
 
 cd /d "%~dp0"
+
+:: ==========================================================
+:: === PORTABILITY ISOLATION BLOCK ===
+:: ==========================================================
+set "SCRIPT_DIR=%~dp0"
+set "PIXI_HOME=%SCRIPT_DIR%.pixi_home"
+set "PIXI_ENV_DIR=%SCRIPT_DIR%.pixi_envs"
+set "PIXI_CACHE_DIR=%SCRIPT_DIR%.cache\pixi"
+set "RATTLER_CACHE_DIR=%SCRIPT_DIR%.cache\rattler"
+set "UV_CACHE_DIR=%SCRIPT_DIR%.cache\uv"
+set "HF_HOME=%SCRIPT_DIR%.cache\huggingface"
+set "HF_HUB_DOWNLOAD_TIMEOUT=60"
+set "PIXI_NO_VERSION_CHECK=1"
+:: ==========================================================
 
 :: === 1. Check and add Pixi (Bin) to PATH ===
 if exist "%~dp0Bin\pixi.exe" (
@@ -44,7 +67,7 @@ echo.
 :: === 3. Ask user for target directory ===
 :ask
 set "TARGET_DIR="
-set /p "TARGET_DIR=Enter full or relative path to node folder (e.g., ComfyUI\custom_nodes\ComfyUI-GeometryPack): "
+set /p "TARGET_DIR=Enter full or relative path to node folder (e.g.,  D:\ComfyUI\custom_nodes\ComfyUI-GeometryPack): "
 if "%TARGET_DIR%"=="" (
     echo [ERROR] No path entered. Please try again.
     goto ask
