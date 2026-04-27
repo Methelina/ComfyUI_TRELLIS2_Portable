@@ -596,7 +596,7 @@ def step_apply_patches():
         write_status("Restoring numpy 1.26.4 for compatibility...", "INFO")
         run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "--force-reinstall", "numpy==1.26.4", "--no-deps"] + PIP_ARGS)
 
-    # ----- dirty patch nvdiffrast int32 для tri/faces -----  # <-- добавлено
+    # ----- dirty patch nvdiffrast int32 для tri/faces -----
     trellis_node = os.path.join(COMFYUI_DIR, "custom_nodes", "ComfyUI-Trellis2-GGUF")
     nodes_py = os.path.join(trellis_node, "nodes.py")
     if os.path.exists(nodes_py):
@@ -604,19 +604,29 @@ def step_apply_patches():
         try:
             with open(nodes_py, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
-            patch_line = 'out_faces_int32 = out_faces.to(torch.int32)\n'
-            if patch_line in lines:
+            
+            # Проверяем, не применён ли уже патч
+            if any('out_faces_int32 = out_faces.to(torch.int32)' in line for line in lines):
                 write_status("Dirty patch already applied, skipping.", "INFO")
             else:
-                # Вставка перед оригинальной строкой 1947
-                insert_index = 1946  # 0-based, чтобы новая строка стала 1947
+                insert_index = 1946  # 0-индекс строки 1947 (перед ней вставляем)
                 if len(lines) >= insert_index:
+                    # Гарантируем, что предыдущая строка заканчивается на \n
+                    if insert_index > 0 and not lines[insert_index-1].endswith('\n'):
+                        lines[insert_index-1] += '\n'
+                    
+                    # Вставляемая строка с \n
+                    patch_line = 'out_faces_int32 = out_faces.to(torch.int32)\n'
                     lines.insert(insert_index, patch_line)
+                    
+                    # Опционально: добавить пустую строку после для читаемости (не обязательно)
+                    # lines.insert(insert_index+1, '\n')
+                    
                     with open(nodes_py, 'w', encoding='utf-8') as f:
                         f.writelines(lines)
                     write_status("Dirty patch nvdiffrast int32 for tri/faces applied successfully.", "SUCCESS")
                 else:
-                    write_status(f"nodes.py содержит {len(lines)} строк, меньше 1947. Ручная вставка не выполнена.", "WARN")
+                    write_status(f"nodes.py содержит {len(lines)} строк, что меньше 1947. Вставка не выполнена.", "WARN")
         except Exception as e:
             write_status(f"Ошибка применения dirty patch: {e}", "WARN")
     else:
