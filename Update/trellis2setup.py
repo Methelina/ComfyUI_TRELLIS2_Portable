@@ -1,8 +1,8 @@
 # ---------------------------------------------------------
 # \Update\trellis2setup.py
-# Version: 1.0.7
+# Version: 1.0.8
 # Author:  Soror L.'.L.'.
-# Updated: 2026-04-25
+# Updated: 2026-04-26
 #
 # Patchnote v1.0.0 (By Soror L.'.L.'.):
 #   [+] Initial release - Trellis2 GGUF installer for Conda environment
@@ -29,6 +29,7 @@
 #
 # Patchnote v1.0.8 (By Soror L.'.L.'.):       
 #   [+] Added dirty patch nvdiffrast int32 for tri/faces in nodes.py
+#   [*] Aligned model directory structure with model_manager.py (nested folders)
 # ---------------------------------------------------------
 
 import os
@@ -61,7 +62,7 @@ class Colors:
     WHITE = '\033[97m'
     RESET = '\033[0m'
 
-VERSION = "1.0.7"
+VERSION = "1.0.8"
 NODE_NAME = "Trellis2 GGUF"
 TITLE = f"{NODE_NAME} Installer v{VERSION}"
 
@@ -98,8 +99,12 @@ else:
 PIP_ARGS = ["--no-cache"]
 
 # ----------------------------- Model URLs and manifests -----------------------------
-BASE_URL_DINOV3 = "https://huggingface.co/PIA-SPACE-LAB/dinov3-vitl-pretrain-lvd1689m/resolve/main"
-FOLDER_DINOV3 = os.path.join(COMFYUI_DIR, "models", "facebook", "dinov3-vitl16-pretrain-lvd1689m")
+#BASE_URL_DINOV3 = "https://huggingface.co/PIA-SPACE-LAB/dinov3-vitl-pretrain-lvd1689m/resolve/main" 
+# Old Rep for the alt
+BASE_URL_DINOV3 = "https://huggingface.co/Aero-Ex/Dinov3/resolve/main"
+
+# DINOv3 nested structure (aligned with model_manager.py)
+FOLDER_DINOV3 = os.path.join(COMFYUI_DIR, "models", "Trellis2", "dinov3", "facebook", "dinov3-vitl16-pretrain-lvd1689m")
 
 DINOV3_MANIFEST = [
     ("model.safetensors", "DINOv3 Model"),
@@ -107,9 +112,22 @@ DINOV3_MANIFEST = [
     ("preprocessor_config.json", "DINOv3 Pre-config")
 ]
 
+# Subfolder map for Trellis2 models (aligned with model_manager.py REPO_PATH_MAP)
+TRELLIS_REPO_PATH_MAP = {
+    "ss_dec_":                 "decoders/Stage1/",
+    "shape_dec_":              "decoders/Stage2/",
+    "tex_dec_":                "decoders/Stage2/",
+    "ss_flow_":                "refiner/",
+    "slat_flow_img2shape_":    "shape/",
+    "slat_flow_imgshape2tex_": "texture/",
+    "shape_enc_":             "encoders/",
+    "tex_enc_":               "encoders/",
+}
+
 BASE_URL_TRELLIS = "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/main"
 FOLDER_TRELLIS = os.path.join(COMFYUI_DIR, "models", "Trellis2")
 
+# Trellis2 manifest with basenames only (folders determined by REPO_PATH_MAP)
 TRELLIS2_MANIFEST = [
     ("pipeline.json", "Pipeline Config"),
     ("refiner/ss_flow_img_dit_1_3B_64_bf16.json", "Sparse Structure Config"),
@@ -549,11 +567,36 @@ def step_install_triton():
 
 def step_download_models():
     write_step("Downloading AI Models (DINOv3 + Trellis2 GGUF)", 7, 8)
+    
+    # --- DINOv3 Model ---
     write_status("--- DINOv3 Model ---", "INFO")
     failed_dinov3 = process_downloads(DINOV3_MANIFEST, BASE_URL_DINOV3, FOLDER_DINOV3, force_delete=["model.safetensors"])
+    
     print("")
     write_status("--- Trellis2 GGUF Models (Q4_K_M) ---", "INFO")
-    failed_trellis = process_downloads(TRELLIS2_MANIFEST, BASE_URL_TRELLIS, FOLDER_TRELLIS)
+    
+    # --- Trellis2 GGUF Models with nested folder structure ---
+    failed_trellis = []
+    os.makedirs(FOLDER_TRELLIS, exist_ok=True)
+
+    for i, (nested_path, label) in enumerate(TRELLIS2_MANIFEST, 1):
+        dest_path = os.path.join(FOLDER_TRELLIS, nested_path)
+        url = f"{BASE_URL_TRELLIS}/{nested_path}"
+
+        if os.path.exists(dest_path):
+            size_mb = os.path.getsize(dest_path) / (1024 * 1024)
+            status = f"{Colors.GREEN}already exists{Colors.RESET} ({size_mb:.0f} MB)" if size_mb > 1 else f"{Colors.GREEN}already exists{Colors.RESET}"
+            print(f"[{i:2d}/{len(TRELLIS2_MANIFEST)}] {label:25s}  {status}")
+            continue
+
+        print(f"[{i:2d}/{len(TRELLIS2_MANIFEST)}] {label:25s}  {Colors.YELLOW}downloading...{Colors.RESET}")
+        try:
+            download_file_with_resume(url, dest_path)
+            print(f"[{i:2d}/{len(TRELLIS2_MANIFEST)}] {label:25s}  {Colors.GREEN}done{Colors.RESET}")
+        except Exception as e:
+            write_status(f"Failed {label}: {e}", "ERROR")
+            failed_trellis.append(nested_path)
+
     print("")
     print("=" * 50)
     if not failed_trellis and not failed_dinov3:
