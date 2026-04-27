@@ -37,6 +37,10 @@ set "UV_CACHE_DIR=%SCRIPT_DIR%.cache\uv"
 set "HF_HOME=%SCRIPT_DIR%.cache\huggingface"
 set "HF_HUB_DOWNLOAD_TIMEOUT=60"
 set "PIXI_NO_VERSION_CHECK=1"
+set "TMP=%SCRIPT_DIR%.cache\tmp"
+set "TEMP=%SCRIPT_DIR%.cache\tmp"
+set "BUILD_DIR=%SCRIPT_DIR%.cache\build_dir"
+if not exist "%TMP%" mkdir "%TMP%"
 :: ==========================================================
 
 :: === 1. Check and add Pixi (Bin) to PATH ===

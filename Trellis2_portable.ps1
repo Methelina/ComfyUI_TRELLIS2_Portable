@@ -474,8 +474,8 @@ Write-Step "Installing PyTorch (Torch 2.8 + Torch 0.23 + Audio 2.8)..." 4 10
 $TorchCmd = "torch==2.8.0+cu128 torchvision==0.23.0+cu128 torchaudio==2.8.0+cu128 --extra-index-url https://download.pytorch.org/whl/cu128"
 Invoke-UvPipInstall $TorchCmd
 
-# === 5. Install Wheels (xFormers) ===
-Write-Step "Installing Specific Wheels (xFormers)..." 5 10
+# === 5. Install Wheels ===
+Write-Step "Installing Specific Wheels..." 5 10
 foreach ($key in $wheelList.Keys) {
     $info = $wheelList[$key]
     $localWheelPath = Get-OrDownload-Wheel -Name $key -Url $info.url
