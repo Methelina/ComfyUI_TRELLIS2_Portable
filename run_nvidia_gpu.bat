@@ -55,16 +55,28 @@ if exist "%~dp0Bin\pixi.exe" (
     echo "[INFO] Please ensure pixi.exe is placed in the \"Bin\" folder next to this launcher."
 )
 :: ============== ENV VAR SET ==============================
-set SCRIPT_DIR=%~dp0
-set PIXI_HOME=%SCRIPT_DIR%.pixi_home
-set PIXI_ENV_DIR=%SCRIPT_DIR%.pixi_envs
-set PIXI_CACHE_DIR=%SCRIPT_DIR%.cache\pixi
-set RATTLER_CACHE_DIR=%SCRIPT_DIR%.cache\rattler
-set UV_CACHE_DIR=%SCRIPT_DIR%.cache\uv
-set HF_HOME=%SCRIPT_DIR%.cache\huggingface
+:: ==========================================================
+:: === PORTABILITY ISOLATION BLOCK ===
+:: ==========================================================
+set "SCRIPT_DIR=%~dp0"
+set "PIXI_HOME=%SCRIPT_DIR%.pixi_home"
+set "PIXI_ENV_DIR=%SCRIPT_DIR%.pixi_envs"
+set "PIXI_CACHE_DIR=%SCRIPT_DIR%.cache\pixi"
+set "RATTLER_CACHE_DIR=%SCRIPT_DIR%.cache\rattler"
+set "UV_CACHE_DIR=%SCRIPT_DIR%.cache\uv"
+set "HF_HOME=%SCRIPT_DIR%.cache\huggingface"
+set "HF_HUB_DOWNLOAD_TIMEOUT=60"
+set "PIXI_NO_VERSION_CHECK=1"
+set "TMP=%SCRIPT_DIR%.cache\tmp"
+set "TEMP=%SCRIPT_DIR%.cache\tmp"
+set "COMFY_CE_BUILD_BASE=%SCRIPT_DIR%.cache\ce"
+set "BUILD_DIR=%SCRIPT_DIR%.cache\build_dir"
+if not exist "%TMP%" mkdir "%TMP%"
+if not exist "%COMFY_CE_BUILD_BASE%" mkdir "%COMFY_CE_BUILD_BASE%"
+if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
+:: ==========================================================
 set COMFY_CACHE_DIR=%SCRIPT_DIR%.cache\ComfyUI_Cache
-set HF_HUB_DOWNLOAD_TIMEOUT=60
-set PIXI_NO_VERSION_CHECK=1
+if not exist "%COMFY_CACHE_DIR%" mkdir "%COMFY_CACHE_DIR%"
 :: ==========================================================
 
 :: === Proxy for all HTTP/HTTPS requests (including HF, pip, requests, urllib, etc.). Uncomment it if you use a proxy for internet connection
