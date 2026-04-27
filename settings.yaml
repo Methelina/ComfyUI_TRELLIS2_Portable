@@ -112,7 +112,9 @@ nodes:
   - url: "https://github.com/PozzettiAndrea/ComfyUI-Pulse-MeshAudit"
     name: "ComfyUI-Pulse-MeshAudit"
   - url: "https://github.com/PozzettiAndrea/ComfyUI-GeometryPack"
-    name: "ComfyUI-GeometryPack"    
+    name: "ComfyUI-GeometryPack"
+  - url: "https://github.com/Windecay/ComfyUI_Dynamic-RAMCache"
+    name: "ComfyUI_Dynamic-RAMCache"   
 
 # Дополнительные библиотеки (обычные пакеты из pypi)
 pypi_packages:
