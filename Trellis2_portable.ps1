@@ -1,5 +1,4 @@
-﻿﻿#
-# ==========================================
+﻿# ==========================================
 # SYNOPSIS
 #     ComfyUI Installer v0.5.0 (PyTorch via Index, English UI)
 #     Portable installer with uv + Pixi support for isolated environments (comfy-env)
