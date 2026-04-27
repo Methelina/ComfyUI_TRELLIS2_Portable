@@ -39,8 +39,11 @@ set "HF_HUB_DOWNLOAD_TIMEOUT=60"
 set "PIXI_NO_VERSION_CHECK=1"
 set "TMP=%SCRIPT_DIR%.cache\tmp"
 set "TEMP=%SCRIPT_DIR%.cache\tmp"
+set "COMFY_CE_BUILD_BASE=%SCRIPT_DIR%.cache\ce"
 set "BUILD_DIR=%SCRIPT_DIR%.cache\build_dir"
 if not exist "%TMP%" mkdir "%TMP%"
+if not exist "%COMFY_CE_BUILD_BASE%" mkdir "%COMFY_CE_BUILD_BASE%"
+if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 :: ==========================================================
 
 :: === 1. Check and add Pixi (Bin) to PATH ===
