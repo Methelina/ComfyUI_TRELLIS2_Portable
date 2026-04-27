@@ -527,10 +527,11 @@ foreach ($node in $nodeList) {
         Invoke-UvPipInstall "-r `"$reqPath`" $PIPargs"
     }
 
-    # Check for comfy-env.toml (sign of Pixi environment)
-    $comfyEnvToml = Join-Path $nodeDir "comfy-env.toml"
-    if (Test-Path $comfyEnvToml) {
-        Write-Host "   [Pixie] Comfy-Env setup.py detected at `"$($node.name)`"" -ForegroundColor Yellow
+        # Check for any comfy-env*.toml file (sign of Pixi environment)
+    $comfyEnvTomlFiles = Get-ChildItem -Path $nodeDir -Filter "comfy-env*.toml" -ErrorAction SilentlyContinue
+    if ($comfyEnvTomlFiles) {
+        $fileNames = $comfyEnvTomlFiles.Name -join ', '
+        Write-Host "   [Pixie] Comfy-Env file(s) detected at `"$($node.name)`": $fileNames" -ForegroundColor Yellow
         Write-Host "   [Pixie] Create Comfy-Env Ignored - you can setup it later via `"Comfy-Env_Setup.bat`"" -ForegroundColor Yellow
         # install.py is skipped completely
     }
