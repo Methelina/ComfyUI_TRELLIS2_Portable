@@ -64,6 +64,7 @@ custom_nodes/
 - **ОС:** Windows 10/11
 - **GPU:** NVIDIA RTX 3xxx (Инструкции sm85+) с поддержкой CUDA 12.8 (6+ GB VRAM)
 - **Git:** [Скачать Git для Windows](https://git-scm.com/download/win)
+- **PowerShell 7.x** для запуска скрипта установки и приложения [Download Powershell 7 for win](https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-windows?view=powershell-7.6#msi) 
 
 ## 🧩 Структура
 
