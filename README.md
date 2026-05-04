@@ -7,7 +7,7 @@ A portable installer for running **ComfyUI TRELLIS2 Portable** for 3D generation
 1. **Download** the repository or run `git clone`
 2. **Launch** `Trellis2_portable.ps1` (PowerShell)
 3. **Wait** for the automatic installation of the environment, dependencies, and models
-4. **Edit** `run_nvidia_gpu.bat` to match your PC configuration and **run** it
+4. **Edit** `run_nvidia_gpu.ps1` to match your PC configuration and **run** it
 5. Profit :)
 
 ## 📦 What Gets Installed?
