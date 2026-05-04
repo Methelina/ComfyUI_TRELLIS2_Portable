@@ -7,7 +7,7 @@
 1. **Скачайте** репозиторий или выполните `git clone`
 2. **Запустите** `Trellis2_portable.ps1` (PowerShell)
 3. **Дождитесь** автоматической установки окружения, зависимостей и моделей
-4. **Отредактируйте** под свою конфигурацию компа `run_nvidia_gpu.bat` и **запустите**
+4. **Отредактируйте** под свою конфигурацию компа `run_nvidia_gpu.ps1` и **запустите**
 5. Профит :)
 
 ## 📦 Что устанавливается?
@@ -64,6 +64,7 @@ custom_nodes/
 - **ОС:** Windows 10/11
 - **GPU:** NVIDIA RTX 3xxx (Инструкции sm85+) с поддержкой CUDA 12.8 (6+ GB VRAM)
 - **Git:** [Скачать Git для Windows](https://git-scm.com/download/win)
+- **PowerShell 7.x** для запуска скрипта установки и приложения [Download Powershell 7 for win](https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-windows?view=powershell-7.6#msi) 
 
 ## 🧩 Структура
 
