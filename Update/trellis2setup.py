@@ -30,6 +30,7 @@
 # Patchnote v1.0.8 (By Soror L.'.L.'.):       
 #   [+] Added dirty patch nvdiffrast int32 for tri/faces in nodes.py
 #   [*] Aligned model directory structure with model_manager.py (nested folders)
+#   [*] Removed DINOv3 model download due to upstream repository removal
 # ---------------------------------------------------------
 
 import os
@@ -98,19 +99,11 @@ else:
 # --use-pep517 removed: uv supports PEP 517 builds by default
 PIP_ARGS = ["--no-cache"]
 
-# ----------------------------- Model URLs and manifests -----------------------------
-#BASE_URL_DINOV3 = "https://huggingface.co/PIA-SPACE-LAB/dinov3-vitl-pretrain-lvd1689m/resolve/main" 
+# BASE_URL_DINOV3 = "https://huggingface.co/PIA-SPACE-LAB/dinov3-vitl-pretrain-lvd1689m/resolve/main" 
 # Old Rep for the alt
-BASE_URL_DINOV3 = "https://huggingface.co/Aero-Ex/Dinov3/resolve/main"
-
-# DINOv3 nested structure (aligned with model_manager.py)
-FOLDER_DINOV3 = os.path.join(COMFYUI_DIR, "models", "Trellis2", "dinov3", "facebook", "dinov3-vitl16-pretrain-lvd1689m")
-
-DINOV3_MANIFEST = [
-    ("model.safetensors", "DINOv3 Model"),
-    ("config.json", "DINOv3 Config"),
-    ("preprocessor_config.json", "DINOv3 Pre-config")
-]
+# BASE_URL_DINOV3 = "https://huggingface.co/Aero-Ex/Dinov3/resolve/main"
+# ----------------------------- Model URLs and manifests -----------------------------
+# DINOv3 download removed — upstream repository deleted
 
 # Subfolder map for Trellis2 models (aligned with model_manager.py REPO_PATH_MAP)
 TRELLIS_REPO_PATH_MAP = {
@@ -566,16 +559,9 @@ def step_install_triton():
         write_status("Triton could not be installed. Proceeding without Triton support.", "WARN")
 
 def step_download_models():
-    write_step("Downloading AI Models (DINOv3 + Trellis2 GGUF)", 7, 8)
-    
-    # --- DINOv3 Model ---
-    write_status("--- DINOv3 Model ---", "INFO")
-    failed_dinov3 = process_downloads(DINOV3_MANIFEST, BASE_URL_DINOV3, FOLDER_DINOV3, force_delete=["model.safetensors"])
-    
-    print("")
+    write_step("Downloading Trellis2 GGUF Models", 7, 8)
     write_status("--- Trellis2 GGUF Models (Q4_K_M) ---", "INFO")
-    
-    # --- Trellis2 GGUF Models with nested folder structure ---
+
     failed_trellis = []
     os.makedirs(FOLDER_TRELLIS, exist_ok=True)
 
@@ -599,13 +585,10 @@ def step_download_models():
 
     print("")
     print("=" * 50)
-    if not failed_trellis and not failed_dinov3:
-        write_status("All models downloaded successfully", "SUCCESS")
+    if not failed_trellis:
+        write_status("All Trellis2 models downloaded successfully", "SUCCESS")
     else:
-        if failed_dinov3:
-            write_status(f"DINOv3 downloads failed: {failed_dinov3}", "WARN")
-        if failed_trellis:
-            write_status(f"Trellis2 downloads failed: {failed_trellis}", "WARN")
+        write_status(f"Trellis2 downloads failed: {failed_trellis}", "WARN")
     print("=" * 50)
     print("")
 
