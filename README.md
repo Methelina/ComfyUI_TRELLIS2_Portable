@@ -65,6 +65,7 @@ custom_nodes/
 - **OS:** Windows 10/11
 - **GPU:** NVIDIA RTX 3xxx (sm85+ instructions) with CUDA 12.8 support (6+ GB VRAM)
 - **Git:** [Download Git for Windows](https://git-scm.com/download/win)
+- **PowerShell 7.x** to run the script [Download Powershell 7 for win](https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-windows?view=powershell-7.6#msi) 
 
 ## 🧩 Directory Structure
 
