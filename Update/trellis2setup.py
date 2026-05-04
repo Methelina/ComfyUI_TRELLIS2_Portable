@@ -1,8 +1,8 @@
 # ---------------------------------------------------------
 # \Update\trellis2setup.py
-# Version: 1.0.8
+# Version: 1.0.10
 # Author:  Soror L.'.L.'.
-# Updated: 2026-04-26
+# Updated: 2026-05-04
 #
 # Patchnote v1.0.0 (By Soror L.'.L.'.):
 #   [+] Initial release - Trellis2 GGUF installer for Conda environment
@@ -30,7 +30,14 @@
 # Patchnote v1.0.8 (By Soror L.'.L.'.):       
 #   [+] Added dirty patch nvdiffrast int32 for tri/faces in nodes.py
 #   [*] Aligned model directory structure with model_manager.py (nested folders)
-#   [*] Removed DINOv3 model download due to upstream repository removal
+#
+# Patchnote v1.0.9 (By Soror L.'.L.'.):       
+#   [*] Restored DINOv3 download using direct pycurl URLs after upstream repo restored
+#   [*] Switched DINOv3 download to pycurl-only (no huggingface_hub)
+#
+# Patchnote v1.0.10 (By Soror L.'.L.'.):       
+#   [+] Added mirror for DINOv3 (PIA-SPACE-LAB) with fallback logic
+#   [+] Warning if all mirrors fail, installation continues
 # ---------------------------------------------------------
 
 import os
@@ -63,7 +70,7 @@ class Colors:
     WHITE = '\033[97m'
     RESET = '\033[0m'
 
-VERSION = "1.0.8"
+VERSION = "1.0.10"
 NODE_NAME = "Trellis2 GGUF"
 TITLE = f"{NODE_NAME} Installer v{VERSION}"
 
@@ -99,11 +106,21 @@ else:
 # --use-pep517 removed: uv supports PEP 517 builds by default
 PIP_ARGS = ["--no-cache"]
 
-# BASE_URL_DINOV3 = "https://huggingface.co/PIA-SPACE-LAB/dinov3-vitl-pretrain-lvd1689m/resolve/main" 
-# Old Rep for the alt
-# BASE_URL_DINOV3 = "https://huggingface.co/Aero-Ex/Dinov3/resolve/main"
 # ----------------------------- Model URLs and manifests -----------------------------
-# DINOv3 download removed — upstream repository deleted
+# DINOv3 mirrors (direct links for pycurl)
+DINOV3_MIRRORS = [
+    # (name, base_url, subpath_prefix)
+    ("Aero-Ex", "https://huggingface.co/Aero-Ex/Dinov3/resolve/main", "facebook/dinov3-vitl16-pretrain-lvd1689m"),
+    ("PIA-SPACE-LAB", "https://huggingface.co/PIA-SPACE-LAB/dinov3-vitl-pretrain-lvd1689m/resolve/main", ""),
+]
+
+FOLDER_DINOV3 = os.path.join(COMFYUI_DIR, "models", "Trellis2", "dinov3", "facebook", "dinov3-vitl16-pretrain-lvd1689m")
+
+DINOV3_MANIFEST = [
+    ("preprocessor_config.json", "DINOv3 Pre-config"),
+    ("config.json", "DINOv3 Config"),
+    ("model.safetensors", "DINOv3 Model"),
+]
 
 # Subfolder map for Trellis2 models (aligned with model_manager.py REPO_PATH_MAP)
 TRELLIS_REPO_PATH_MAP = {
@@ -559,9 +576,59 @@ def step_install_triton():
         write_status("Triton could not be installed. Proceeding without Triton support.", "WARN")
 
 def step_download_models():
-    write_step("Downloading Trellis2 GGUF Models", 7, 8)
-    write_status("--- Trellis2 GGUF Models (Q4_K_M) ---", "INFO")
+    write_step("Downloading AI Models (DINOv3 + Trellis2 GGUF)", 7, 8)
+    
+    # --- DINOv3 Model with mirror fallback ---
+    write_status("--- DINOv3 Model (pycurl mirrors) ---", "INFO")
+    failed_dinov3 = []
+    os.makedirs(FOLDER_DINOV3, exist_ok=True)
 
+    for i, (filename, label) in enumerate(DINOV3_MANIFEST, 1):
+        dest_path = os.path.join(FOLDER_DINOV3, filename)
+
+        if os.path.exists(dest_path):
+            size_mb = os.path.getsize(dest_path) / (1024 * 1024)
+            status = f"{Colors.GREEN}already exists{Colors.RESET} ({size_mb:.0f} MB)" if size_mb > 1 else f"{Colors.GREEN}already exists{Colors.RESET}"
+            print(f"[{i:2d}/{len(DINOV3_MANIFEST)}] {label:25s}  {status}")
+            continue
+
+        print(f"[{i:2d}/{len(DINOV3_MANIFEST)}] {label:25s}  {Colors.YELLOW}downloading...{Colors.RESET}")
+        downloaded = False
+        for mirror_name, base_url, subpath in DINOV3_MIRRORS:
+            # Build URL: mirror provides a subpath prefix (possibly empty)
+            if subpath:
+                url = f"{base_url}/{subpath}/{filename}?download=true"
+            else:
+                url = f"{base_url}/{filename}?download=true"
+            write_status(f"Trying mirror: {mirror_name} ({url})", "INFO")
+            try:
+                download_file_with_resume(url, dest_path)
+                downloaded = True
+                write_status(f"DINOv3 {label} downloaded from {mirror_name}", "SUCCESS")
+                break
+            except Exception as e:
+                write_status(f"Mirror {mirror_name} failed for {label}: {e}", "WARN")
+                continue
+
+        if not downloaded:
+            write_status(f"All mirrors exhausted for {label}. Marking as failed.", "WARN")
+            failed_dinov3.append(filename)
+        else:
+            print(f"[{i:2d}/{len(DINOV3_MANIFEST)}] {label:25s}  {Colors.GREEN}done{Colors.RESET}")
+
+    if failed_dinov3:
+        print("")
+        write_status(
+            "DINOv3 download could not be completed from any mirror. "
+            "The files will be downloaded later by the model manager node in ComfyUI when needed. "
+            "Continuing installation...",
+            "WARN"
+        )
+        print("")
+    print("")
+    write_status("--- Trellis2 GGUF Models (Q4_K_M) ---", "INFO")
+    
+    # --- Trellis2 GGUF Models ---
     failed_trellis = []
     os.makedirs(FOLDER_TRELLIS, exist_ok=True)
 
@@ -585,10 +652,16 @@ def step_download_models():
 
     print("")
     print("=" * 50)
-    if not failed_trellis:
-        write_status("All Trellis2 models downloaded successfully", "SUCCESS")
+    all_ok = not failed_dinov3 and not failed_trellis
+    if all_ok:
+        write_status("All models downloaded successfully", "SUCCESS")
     else:
-        write_status(f"Trellis2 downloads failed: {failed_trellis}", "WARN")
+        if failed_dinov3:
+            write_status(f"DINOv3 downloads skipped (will be handled later): {failed_dinov3}", "WARN")
+        if failed_trellis:
+            write_status(f"Trellis2 downloads failed: {failed_trellis}", "WARN")
+        if not failed_trellis and failed_dinov3:
+            write_status("Trellis2 models downloaded successfully, DINOv3 deferred to ComfyUI node.", "INFO")
     print("=" * 50)
     print("")
 
@@ -632,7 +705,6 @@ def step_apply_patches():
     else:
         write_status("Applying dirty patch nvdiffrast int32 for tri/faces...", "INFO")
         try:
-            # Читаем файл, определяем символ(ы) перевода строки
             with open(nodes_py, 'r', encoding='utf-8', newline='') as f:
                 content = f.read()
         except Exception as e:
@@ -651,18 +723,16 @@ def step_apply_patches():
                     "WARN"
                 )
             else:
-                # Ищем ориентировочную строку в диапазоне
                 marker = 'out_normals = cumesh.read_vertex_normals()[out_vmaps]'
                 marker_idx = None
-                for i in range(SEARCH_START, min(SEARCH_END, len(lines))):
-                    if marker in lines[i]:
-                        marker_idx = i
+                for ii in range(SEARCH_START, min(SEARCH_END, len(lines))):
+                    if marker in lines[ii]:
+                        marker_idx = ii
                         break
 
                 if marker_idx is None:
                     write_status(f"Orientation line '{marker}' not found in lines {SEARCH_START}-{SEARCH_END}.", "WARN")
                 else:
-                    # Ищем следующую значимую строку (должна быть print)
                     target_print = 'print("Sampling attributes...")'
                     next_significant = None
                     for j in range(marker_idx + 1, min(SEARCH_END, len(lines))):
@@ -672,7 +742,6 @@ def step_apply_patches():
                     if next_significant is None or target_print not in lines[next_significant]:
                         write_status(f"Expected '{target_print}' after orientation not found in range.", "WARN")
                     else:
-                        # Проверяем, нет ли уже патча между ориент. и print
                         patch_text = 'out_faces_int32 = out_faces.to(torch.int32)'
                         already_patched = False
                         for k in range(marker_idx + 1, next_significant):
@@ -682,7 +751,6 @@ def step_apply_patches():
                         if already_patched:
                             write_status("Dirty patch already applied, skipping.", "INFO")
                         else:
-                            # Извлекаем отступ из строки-ориентира
                             indent = ''
                             for ch in lines[marker_idx]:
                                 if ch in (' ', '\t'):
@@ -692,18 +760,12 @@ def step_apply_patches():
                             empty_line = nl
                             patch_line = f'{indent}{patch_text}{nl}'
 
-                            # Вставляем пустую строку и патч после ориентира
                             lines.insert(marker_idx + 1, empty_line)
                             lines.insert(marker_idx + 2, patch_line)
-
-                            # Если строка, ранее следовавшая за ориентиром, не пуста,
-                            # добавляем ещё одну пустую строку перед ней (после патча)
-                            # после вставки двух строк бывшая marker_idx+1 стала marker_idx+3
                             after_patch_idx = marker_idx + 3
                             if after_patch_idx < len(lines) and lines[after_patch_idx].strip():
                                 lines.insert(after_patch_idx, empty_line)
 
-                            # Сохраняем
                             try:
                                 with open(nodes_py, 'w', encoding='utf-8', newline='') as f:
                                     f.write(''.join(lines))
