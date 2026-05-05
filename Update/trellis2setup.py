@@ -1,6 +1,6 @@
 # ---------------------------------------------------------
 # \Update\trellis2setup.py
-# Version: 1.0.10
+# Version: 1.0.11
 # Author:  Soror L.'.L.'.
 # Updated: 2026-05-04
 #
@@ -38,6 +38,10 @@
 # Patchnote v1.0.10 (By Soror L.'.L.'.):       
 #   [+] Added mirror for DINOv3 (PIA-SPACE-LAB) with fallback logic
 #   [+] Warning if all mirrors fail, installation continues
+#
+# Patchnote v1.0.11 (By Soror L.'.L.'.):
+#   [+] Added automatic sync of example workflows from \workflows to custom node folder
+#   [*] Updated stage numbering to accommodate new step
 # ---------------------------------------------------------
 
 import os
@@ -70,7 +74,7 @@ class Colors:
     WHITE = '\033[97m'
     RESET = '\033[0m'
 
-VERSION = "1.0.10"
+VERSION = "1.0.11"
 NODE_NAME = "Trellis2 GGUF"
 TITLE = f"{NODE_NAME} Installer v{VERSION}"
 
@@ -476,7 +480,7 @@ else:
 
 # ----------------------------- Installation stages -----------------------------
 def step_check_environment():
-    write_step("Checking Python Environment (uv/venv)", 1, 8)
+    write_step("Checking Python Environment (uv/venv)", 1, 9)
     if not os.path.exists(PYTHON_EXE):
         write_status(f"Python not found at {PYTHON_EXE}", "ERROR")
         write_status("Make sure Trellis2 is installed in the correct uv/venv environment", "WARN")
@@ -486,7 +490,7 @@ def step_check_environment():
     write_status(f"Python found: {PYTHON_EXE}", "SUCCESS")
 
 def step_check_comfyui():
-    write_step("Checking ComfyUI Directory Structure", 2, 8)
+    write_step("Checking ComfyUI Directory Structure", 2, 9)
     if not os.path.exists(COMFYUI_DIR):
         write_status(f"ComfyUI directory not found: {COMFYUI_DIR}", "ERROR")
         write_status("You can specify the correct path using: --comfyui_dir \"path\\to\\ComfyUI\"", "INFO")
@@ -495,7 +499,7 @@ def step_check_comfyui():
     write_status(f"ComfyUI found: {COMFYUI_DIR}", "SUCCESS")
 
 def step_check_comfyui_status():
-    write_step(f"Checking ComfyUI Status (Port {args.port})", 3, 8)
+    write_step(f"Checking ComfyUI Status (Port {args.port})", 3, 9)
     try:
         if socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect_ex(('127.0.0.1', args.port)) == 0:
             write_status(f"ComfyUI is already running on port {args.port}. Please close it first.", "WARN")
@@ -507,7 +511,7 @@ def step_check_comfyui_status():
         write_status("Could not verify ComfyUI status. Proceeding anyway...", "WARN")
 
 def step_install_custom_node():
-    write_step("Cloning and Installing ComfyUI-Trellis2-GGUF Node", 4, 8)
+    write_step("Cloning and Installing ComfyUI-Trellis2-GGUF Node", 4, 9)
     custom_nodes = os.path.join(COMFYUI_DIR, "custom_nodes")
     trellis_node = os.path.join(custom_nodes, "ComfyUI-Trellis2-GGUF")
     if os.path.exists(trellis_node):
@@ -523,8 +527,43 @@ def step_install_custom_node():
     run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "--upgrade", "huggingface_hub", "--no-deps"] + PIP_ARGS)
     write_status("Custom node installed successfully", "SUCCESS")
 
+def step_sync_workflows():
+    """Синхронизирует example_workflows: удаляет содержимое папки ноды и копирует туда новые workflow из локальной папки."""
+    write_step("Syncing Example Workflows", 5, 9)
+    target = os.path.join(COMFYUI_DIR, "custom_nodes", "ComfyUI-Trellis2-GGUF", "example_workflows")
+    source = os.path.join(DIR_LVL, "workflows")
+    
+    if not os.path.exists(source):
+        write_status(f"Workflows source folder not found: {source}. Skipping sync.", "WARN")
+        return
+
+    # Очистка целевой папки
+    if os.path.exists(target):
+        for item in os.listdir(target):
+            item_path = os.path.join(target, item)
+            if os.path.isdir(item_path):
+                shutil.rmtree(item_path)
+            else:
+                os.remove(item_path)
+        write_status("Cleared existing example_workflows", "INFO")
+    else:
+        os.makedirs(target, exist_ok=True)
+
+    # Копирование из source в target
+    try:
+        for item in os.listdir(source):
+            s = os.path.join(source, item)
+            d = os.path.join(target, item)
+            if os.path.isdir(s):
+                shutil.copytree(s, d, dirs_exist_ok=True)
+            else:
+                shutil.copy2(s, d)
+        write_status("Workflows copied successfully", "SUCCESS")
+    except Exception as e:
+        write_status(f"Failed to copy workflows: {e}", "ERROR")
+
 def step_install_wheels():
-    write_step("Installing Pre-compiled Wheels", 5, 8)
+    write_step("Installing Pre-compiled Wheels", 6, 9)
     temp_wheels_dir = os.path.join(DIR_LVL, "temp_wheels")
     os.makedirs(temp_wheels_dir, exist_ok=True)
 
@@ -564,7 +603,7 @@ def step_install_wheels():
     write_status("All wheels installed successfully", "SUCCESS")
 
 def step_install_triton():
-    write_step("Installing Triton for Windows Compatibility", 6, 8)
+    write_step("Installing Triton for Windows Compatibility", 7, 9)
     if install_triton():
         write_status("Triton installation completed.", "SUCCESS")
         write_status("Running Triton functionality test...", "INFO")
@@ -576,7 +615,7 @@ def step_install_triton():
         write_status("Triton could not be installed. Proceeding without Triton support.", "WARN")
 
 def step_download_models():
-    write_step("Downloading AI Models (DINOv3 + Trellis2 GGUF)", 7, 8)
+    write_step("Downloading AI Models (DINOv3 + Trellis2 GGUF)", 8, 9)
     
     # --- DINOv3 Model with mirror fallback ---
     write_status("--- DINOv3 Model (pycurl mirrors) ---", "INFO")
@@ -666,7 +705,7 @@ def step_download_models():
     print("")
 
 def step_apply_patches():
-    write_step("Applying Required Patches", 8, 8)
+    write_step("Applying Required Patches", 9, 9)
     site_packages = os.path.join(DIR_LVL, "comfy_env", "Lib", "site-packages")
     if not os.path.exists(site_packages) and args.env_path:
         py_dir = os.path.dirname(PYTHON_EXE)
@@ -792,6 +831,7 @@ def main():
     step_check_comfyui()
     step_check_comfyui_status()
     step_install_custom_node()
+    step_sync_workflows()
     step_install_wheels()
     step_install_triton()
     step_download_models()
