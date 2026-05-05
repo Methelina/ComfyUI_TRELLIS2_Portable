@@ -18,7 +18,7 @@
 - Скомпилированый пакет flash_attn, Triton, XFormers
 - Все необходимые wheels (`cumesh`, `nvdiffrast` и др.)
 - Модели: .sft/.GGUF
-- Сет рабочих WorkFlow от FotoSHAMAN
+- Сет рабочих WorkFlow от `FotoSHAMAN`
 
 **Полный список кастомных нод:**
 ```
