@@ -5,9 +5,9 @@
 ## 🚀 Быстрый старт
 
 1. **Скачайте** репозиторий или выполните `git clone`
-2. **Запустите** `Trellis2_portable.ps1` (PowerShell)
+2. **Запустите** `Trellis2_portable.ps1` (PowerShell) или `Trellis2_portable_v5.1.ps1` (для устаревшей PowerShell 5.1 и старше)
 3. **Дождитесь** автоматической установки окружения, зависимостей и моделей
-4. **Отредактируйте** под свою конфигурацию компа `run_nvidia_gpu.ps1` и **запустите**
+4. **Отредактируйте** под свою конфигурацию компа `run_nvidia_gpu.ps1` и **запустите**. Или `run_nvidia_gpu_v5.1.ps1` (для устаревшей PowerShell 5.1 и старше)
 5. Профит :)
 
 ## 📦 Что устанавливается?
@@ -18,6 +18,7 @@
 - Скомпилированый пакет flash_attn, Triton, XFormers
 - Все необходимые wheels (`cumesh`, `nvdiffrast` и др.)
 - Модели: .sft/.GGUF
+- Сет рабочих WorkFlow от FotoSHAMAN
 
 **Полный список кастомных нод:**
 ```
@@ -70,12 +71,14 @@ custom_nodes/
 
 ```
 ComfyUI_TRELLIS2_Portable/
-├── Trellis2_portable.ps1   # Главный установщик
-├── run_nvidia_gpu.bat      # Скрипт запуска
-├── settings.yaml           # Конфиг для установки
-├── uv.exe                  # uv package manager (автозагрузка)
-├── comfy_env/              # Python-окружение (uv venv)
-└── ComfyUI/                # Программа и кастомные ноды
+├── Trellis2_portable.ps1       # Главный установщик
+├── Trellis2_portable_v5.1.ps1  # Главный установщик (для устаревшей PowerShell 5.1 и старше) 
+├── run_nvidia_gpu.ps1          # Скрипт запуска
+├── run_nvidia_gpu_v5.1.ps1     # Скрипт запуска (для устаревшей PowerShell 5.1 и старше)
+├── settings.yaml               # Конфиг для установки
+├── uv.exe                      # uv package manager (автозагрузка)
+├── comfy_env/                  # Python-окружение (uv venv)
+└── ComfyUI/                    # Программа и кастомные ноды
 ```
 
 ## 📝 Лицензия
