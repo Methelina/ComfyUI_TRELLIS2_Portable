@@ -5,9 +5,15 @@ title ComfyUI-Env Setup – Universal Installer for isolated environments
 :: ==========================================================
 :: TRELLIS2 Portable – Interactive installer for comfy-env nodes
 :: ==========================================================
-:: Version: 1.2.0
+:: Version: 1.3.0
 :: Author:  Soror L.'.L.'.
 :: Updated: 2026-04-27
+::
+:: Patchnote v1.3.0 (By Soror L.'.L.'):
+::   [*] FIXED: Env not installed error
+::   [+] Added admin elevation for symlink creation
+::   [*] Now forces env creation in correct location
+::   [+] Added junction (directory symlink) support for Windows
 ::
 :: Patchnote v1.2.0 (By Soror L.'.L.'):
 ::   [+] Added full portability isolation block
@@ -16,14 +22,23 @@ title ComfyUI-Env Setup – Universal Installer for isolated environments
 ::       - PIXI_NO_VERSION_CHECK
 ::   [*] Now all Pixi data stays inside project folder
 ::   [*] Fixed potential "may was unexpected" errors
-::
-:: Patchnote v1.1.0 (By Soror L.'.L.'):
-::   [+] Initial release with interactive node setup
 :: ==========================================================
 
 setlocal enabledelayedexpansion
 
 cd /d "%~dp0"
+
+:: ==========================================================
+:: === CHECK ADMIN FOR SYMLINKS ===
+:: ==========================================================
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+    echo [INFO] Administrator rights required for symlink creation.
+    echo [INFO] Restarting with administrator privileges...
+    powershell start -verb runas '%0' 
+    exit /b
+)
+:: ==========================================================
 
 :: ==========================================================
 :: === PORTABILITY ISOLATION BLOCK ===
@@ -39,8 +54,9 @@ set "HF_HUB_DOWNLOAD_TIMEOUT=60"
 set "PIXI_NO_VERSION_CHECK=1"
 set "TMP=%SCRIPT_DIR%.cache\tmp"
 set "TEMP=%SCRIPT_DIR%.cache\tmp"
-set "COMFY_CE_BUILD_BASE=%SCRIPT_DIR%.cache\ce"
+set "COMFY_CE_BUILD_BASE=%SCRIPT_DIR%.ce_build_cache"
 set "BUILD_DIR=%SCRIPT_DIR%.cache\build_dir"
+
 if not exist "%TMP%" mkdir "%TMP%"
 if not exist "%COMFY_CE_BUILD_BASE%" mkdir "%COMFY_CE_BUILD_BASE%"
 if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
@@ -92,7 +108,16 @@ if errorlevel 1 (
 set "TARGET_DIR=%CD%"
 popd
 
-:: === 4. Check for install.py or setup.py ===
+:: === 4. Override COMFY_CE_BUILD_BASE for this node ===
+:: This forces the build to use node's own folder, not global cache
+set "NODE_HASH="
+for %%I in ("%TARGET_DIR%") do set "NODE_HASH=%%~nI"
+set "NODE_CACHE_DIR=%TARGET_DIR%\nodes\_build_cache"
+if not exist "%NODE_CACHE_DIR%" mkdir "%NODE_CACHE_DIR%"
+set "COMFY_CE_BUILD_BASE=%NODE_CACHE_DIR%"
+echo [INFO] Build cache for this node: %COMFY_CE_BUILD_BASE%
+
+:: === 5. Check for install.py or setup.py ===
 set "INSTALL_SCRIPT="
 if exist "%TARGET_DIR%\install.py" (
     set "INSTALL_SCRIPT=%TARGET_DIR%\install.py"
@@ -104,10 +129,15 @@ if exist "%TARGET_DIR%\install.py" (
     goto ask
 )
 
-:: === 5. Run the script ===
+:: === 6. Run the script ===
 echo.
 echo [INFO] Running %INSTALL_SCRIPT% in isolated environment...
 pushd "%TARGET_DIR%"
+
+:: Clear any existing COMFY_ENV_* variables that might interfere
+set COMFY_ENV_PATH=
+set COMFY_ENV_NAME=
+
 python "%INSTALL_SCRIPT%"
 set "EXIT_CODE=%errorlevel%"
 popd
@@ -116,6 +146,43 @@ if %EXIT_CODE% neq 0 (
     echo [ERROR] Script failed with code %EXIT_CODE%
 ) else (
     echo [SUCCESS] Installation completed.
+    
+    :: === 7. Fix symlink if needed ===
+    echo.
+    echo [INFO] Checking for env symlink issues...
+    for /d %%E in ("%TARGET_DIR%\nodes\_env_*") do (
+        set "ENV_LINK=%%E"
+        pushd "%%E" 2>nul
+        if errorlevel 1 (
+            :: Not a directory - might be a symlink
+            popd
+        ) else (
+            :: It's a real directory, check if it should be a symlink
+            popd
+            echo [WARN] Found real directory instead of symlink: %%E
+            echo [INFO] This happens when run without admin rights.
+            echo [INFO] Attempting to fix...
+            
+            :: Find the actual build location
+            for /f "tokens=*" %%L in ('dir "!COMFY_CE_BUILD_BASE!" /b /ad 2^>nul') do (
+                set "ACTUAL_ENV=!COMFY_CE_BUILD_BASE!\%%L\.pixi\envs\default"
+                if exist "!ACTUAL_ENV!" (
+                    echo [INFO] Found actual env at: !ACTUAL_ENV!
+                    echo [INFO] Removing broken directory...
+                    rmdir /s /q "%%E" 2>nul
+                    echo [INFO] Creating junction (directory symlink)...
+                    mklink /J "%%E" "!ACTUAL_ENV!"
+                    if !errorlevel! equ 0 (
+                        echo [SUCCESS] Symlink fixed!
+                    ) else (
+                        echo [ERROR] Failed to create junction. Please run as Administrator.
+                    )
+                    goto :fixed
+                )
+            )
+            :fixed
+        )
+    )
 )
 
 echo.

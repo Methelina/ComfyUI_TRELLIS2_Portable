@@ -737,6 +737,8 @@ def step_apply_patches():
         run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "--force-reinstall", "numpy==1.26.4", "--no-deps"] + PIP_ARGS)
 
     # ---------- 3. Dirty patch nvdiffrast int32 for tri/faces ----------
+    # [DISABLED] The following dirty patch is commented out.
+    """
     trellis_node = os.path.join(COMFYUI_DIR, "custom_nodes", "ComfyUI-Trellis2-GGUF")
     nodes_py = os.path.join(trellis_node, "nodes.py")
     if not os.path.exists(nodes_py):
@@ -813,6 +815,7 @@ def step_apply_patches():
                                 write_status(f"Failed to write nodes.py: {e}", "WARN")
         else:
             write_status("Could not read nodes.py content.", "WARN")
+    """
 
     write_status("All patches applied successfully", "SUCCESS")
 

@@ -7,6 +7,7 @@ dist/
 build/
 *.egg
 *.pyc
+*_ops_*
 
 # === Virtual Environments ===
 env/
@@ -19,6 +20,8 @@ comfy_env/
 ComfyUI/
 wheels/
 Bin/
+OPS_tools/
+.cache/
 uv.exe
 uvx.exe
 
