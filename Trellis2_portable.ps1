@@ -612,6 +612,17 @@ if (Test-Path $TrellisScript) {
     Write-Status "Trellis2 setup script not found at $TrellisScript" "WARN"
 }
 
+# === 10. Install FaithContouring & Pulse-MeshAudit ===
+Write-Step "Installing FaithContouring and Pulse-MeshAudit..." 9 10
+
+$FaithPulseScript = "Update\Faith-Pulse_install.py"
+if (Test-Path $FaithPulseScript) {
+    Write-Status "Running Faith+Pulse setup script..." "INFO"
+    Invoke-PythonCommand "`"$FaithPulseScript`""
+} else {
+    Write-Status "Faith+Pulse script not found at $FaithPulseScript" "WARN"
+}
+
 # === Finish ===
 Write-Host ""
 Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
