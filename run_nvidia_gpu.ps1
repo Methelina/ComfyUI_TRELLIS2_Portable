@@ -143,17 +143,27 @@ $env:FLASH_ATTENTION_FORCE_OPTIM = "1"
 # ==========================================================
 # Update ComfyUI-Trellis2-GGUF (uncomment if needed)
 # ==========================================================
-# Write-Host "[INFO] Updating ComfyUI-Trellis2-GGUF..." -ForegroundColor Cyan
-# Set-Location "$PSScriptRoot\ComfyUI\custom_nodes\ComfyUI-Trellis2-GGUF"
-# if (Test-Path ".git") { git pull origin main } else { Write-Host "[WARN] ComfyUI-Trellis2-GGUF is not a Git repository — skipping update." -ForegroundColor Yellow }
-# Set-Location $PSScriptRoot
-# Write-Host "[INFO] ComfyUI-Trellis2-GGUF update attempt completed." -ForegroundColor Cyan
-# Write-Host ""
+ Write-Host "[INFO] Updating ComfyUI-Trellis2-GGUF..." -ForegroundColor Cyan
+ Set-Location "$PSScriptRoot\ComfyUI\custom_nodes\ComfyUI-Trellis2-GGUF"
+ if (Test-Path ".git") { git pull origin main } else { Write-Host "[WARN] ComfyUI-Trellis2-GGUF is not a Git repository — skipping update." -ForegroundColor Yellow }
+ Set-Location $PSScriptRoot
+ Write-Host "[INFO] ComfyUI-Trellis2-GGUF update attempt completed." -ForegroundColor Cyan
+ Write-Host ""
+ 
+# ==========================================================
+# Update ComfyUI-Trellis2 (uncomment if needed)
+# ==========================================================
+ Write-Host "[INFO] Updating ComfyUI-Trellis2-GGUF..." -ForegroundColor Cyan
+ Set-Location "$PSScriptRoot\ComfyUI\custom_nodes\ComfyUI-Trellis2"
+ if (Test-Path ".git") { git pull origin main } else { Write-Host "[WARN] ComfyUI-Trellis2 is not a Git repository — skipping update." -ForegroundColor Yellow }
+ Set-Location $PSScriptRoot
+ Write-Host "[INFO] ComfyUI-Trellis2 update attempt completed." -ForegroundColor Cyan
+ Write-Host "" 
 
 # ==========================================================
 # Environment activation and ComfyUI launch (SINGLE LINE)
 # ==========================================================
-& "$PSScriptRoot\comfy_env\Scripts\Activate.ps1"; python -s -W ignore::FutureWarning "$PSScriptRoot\ComfyUI\main.py" --lowvram --cache-lru 6 --windows-standalone-build --listen --temp-directory $env:COMFY_CACHE_DIR --enable-cors-header --port $env:COMFYUI_PORT
+& "$PSScriptRoot\comfy_env\Scripts\Activate.ps1"; python -s -W ignore::FutureWarning "$PSScriptRoot\ComfyUI\main.py" --lowvram --cache-lru 6 --windows-standalone-build  --enable-dynamic-vram --listen --temp-directory $env:COMFY_CACHE_DIR --enable-cors-header --port $env:COMFYUI_PORT
 
 # Optional flags (uncomment if needed):
 # --use-flash-attention
