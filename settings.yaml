@@ -129,3 +129,4 @@ pypi_packages:
   - name: "plyfile"
   - name: "zstandard"
   - name: "mmgp"
+  - name: "e3nn"

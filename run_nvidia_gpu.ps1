@@ -163,7 +163,7 @@ $env:FLASH_ATTENTION_FORCE_OPTIM = "1"
 # ==========================================================
 # Environment activation and ComfyUI launch (SINGLE LINE)
 # ==========================================================
-& "$PSScriptRoot\comfy_env\Scripts\Activate.ps1"; python -s -W ignore::FutureWarning "$PSScriptRoot\ComfyUI\main.py" --lowvram --cache-lru 6 --windows-standalone-build  --enable-dynamic-vram --listen --temp-directory $env:COMFY_CACHE_DIR --enable-cors-header --port $env:COMFYUI_PORT
+& "$PSScriptRoot\comfy_env\Scripts\Activate.ps1"; python -s -W ignore::FutureWarning "$PSScriptRoot\ComfyUI\main.py" --lowvram --cache-lru 6 --preview-method taesd --windows-standalone-build  --enable-dynamic-vram --listen --temp-directory $env:COMFY_CACHE_DIR --enable-cors-header --port $env:COMFYUI_PORT
 
 # Optional flags (uncomment if needed):
 # --use-flash-attention
