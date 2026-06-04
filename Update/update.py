@@ -6,12 +6,36 @@ import shutil
 import filecmp
 import subprocess
 import pathlib
+import importlib.metadata
+import platform
+import ctypes
 
-# ----------------------------------------------------------------------
-# Поиск uv.exe (в корне проекта)
-# ----------------------------------------------------------------------
+def enable_ansi_support():
+    if sys.platform == "win32":
+        try:
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.GetStdHandle(-11)
+            mode = ctypes.c_ulong()
+            kernel32.GetConsoleMode(handle, ctypes.byref(mode))
+            kernel32.SetConsoleMode(handle, mode.value | 0x0004)
+        except:
+            pass
+
+enable_ansi_support()
+
+RESET = "\033[0m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+CYAN = "\033[96m"
+RED = "\033[91m"
+BOLD = "\033[1m"
+
+def cprint(text, color=RESET, bold=False):
+    prefix = BOLD if bold else ""
+    print(f"{prefix}{color}{text}{RESET}")
+
 def get_uv_exe():
-    script_dir = pathlib.Path(__file__).resolve().parent   # папка update/
+    script_dir = pathlib.Path(__file__).resolve().parent
     uv_in_root = script_dir.parent / "uv.exe"
     if uv_in_root.exists():
         return str(uv_in_root)
@@ -19,15 +43,9 @@ def get_uv_exe():
 
 UV_EXE = get_uv_exe()
 
-# ----------------------------------------------------------------------
-# Портабельные кэши uv
-# ----------------------------------------------------------------------
 os.environ.setdefault("UV_CACHE_DIR", str(pathlib.Path(__file__).parent.parent / ".cache" / "uv"))
 os.environ.setdefault("UV_NO_PROGRESS", "1")
 
-# ----------------------------------------------------------------------
-# Git pull через pygit2
-# ----------------------------------------------------------------------
 def pull(repo, remote_name='origin', branch='master'):
     for remote in repo.remotes:
         if remote.name == remote_name:
@@ -48,7 +66,7 @@ def pull(repo, remote_name='origin', branch='master'):
                 repo.merge(remote_master_id)
                 if repo.index.conflicts is not None:
                     for conflict in repo.index.conflicts:
-                        print('Conflicts found in:', conflict[0].path)
+                        cprint(f'Conflicts found in: {conflict[0].path}', RED)
                     raise AssertionError('Conflicts, ahhhhh!!')
                 user = repo.default_signature
                 tree = repo.index.write_tree()
@@ -58,40 +76,127 @@ def pull(repo, remote_name='origin', branch='master'):
             else:
                 raise AssertionError('Unknown merge analysis result')
 
-# ----------------------------------------------------------------------
-# Установка через uv pip
-# ----------------------------------------------------------------------
 def uv_pip_install(package_spec, python_exe):
     cmd = [UV_EXE, "pip", "install", "--python", python_exe] + package_spec.split()
-    print(f"   > {' '.join(cmd)}")
+    cprint(f"   > {' '.join(cmd)}", CYAN)
     subprocess.check_call(cmd)
 
-# ----------------------------------------------------------------------
-# Основная логика
-# ----------------------------------------------------------------------
+def get_package_version(package_name):
+    try:
+        return importlib.metadata.version(package_name)
+    except:
+        return None
+
+def get_comfyui_version():
+    try:
+        repo_path = str(sys.argv[1]) if len(sys.argv) > 1 else "ComfyUI"
+        comfyui_path = os.path.abspath(repo_path)
+        if comfyui_path not in sys.path:
+            sys.path.insert(0, comfyui_path)
+        import comfyui_version
+        return comfyui_version.__version__
+    except:
+        return None
+
+def get_gpu_info():
+    gpu_name = "Unknown"
+    memory_total = ""
+    try:
+        if sys.platform == "win32":
+            nvidia_smi = subprocess.run(
+                ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
+                capture_output=True, text=True, encoding='utf-8', errors='ignore'
+            )
+        else:
+            nvidia_smi = subprocess.run(
+                ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
+                capture_output=True, text=True
+            )
+        if nvidia_smi.returncode == 0:
+            lines = nvidia_smi.stdout.strip().split('\n')
+            if lines:
+                name, mem = lines[0].split(', ')
+                gpu_name = name.strip()
+                memory_total = mem.strip()
+    except FileNotFoundError:
+        pass
+    return gpu_name, memory_total
+
+def get_env_summary():
+    python_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    comfyui_ver = get_comfyui_version()
+    aimdo_ver = get_package_version("comfy-aimdo")
+    kitchen_ver = get_package_version("comfy-kitchen")
+    torch_ver = get_package_version("torch")
+    xformers_ver = get_package_version("xformers")
+    frontend_ver = get_package_version("comfyui-frontend-package")
+    gpu_name, gpu_mem = get_gpu_info()
+    os_info = f"{platform.system()}-{platform.release()}"
+    return {
+        "python": python_ver,
+        "comfyui": comfyui_ver or "unknown",
+        "comfy-aimdo": aimdo_ver or "not installed",
+        "comfy-kitchen": kitchen_ver or "not installed",
+        "torch": torch_ver or "not installed",
+        "xformers": xformers_ver or "not installed",
+        "comfyui-frontend-package": frontend_ver or "not installed",
+        "gpu": f"{gpu_name} ({gpu_mem})" if gpu_mem else gpu_name,
+        "os": os_info,
+    }
+
+def print_summary(summary):
+    cprint("============================================================", GREEN, bold=True)
+    cprint("ENVIRONMENT SUMMARY", GREEN, bold=True)
+    cprint("============================================================", GREEN, bold=True)
+    cprint(f"Python       : {summary['python']}", CYAN)
+    cprint(f"ComfyUI      : {summary['comfyui']}", CYAN)
+    cprint(f"comfy-aimdo  : {summary['comfy-aimdo']}", CYAN)
+    cprint(f"comfy-kitchen: {summary['comfy-kitchen']}", CYAN)
+    cprint(f"torch        : {summary['torch']}", CYAN)
+    cprint(f"xformers     : {summary['xformers']}", CYAN)
+    cprint(f"comfyui-frontend-package: {summary['comfyui-frontend-package']}", CYAN)
+    cprint(f"GPU          : {summary['gpu']}", CYAN)
+    cprint(f"OS           : {summary['os']}", CYAN)
+    cprint("============================================================", GREEN, bold=True)
+
+def print_diff(before, after):
+    changes = []
+    for key in ["comfyui", "comfy-aimdo", "comfy-kitchen", "torch", "xformers", "comfyui-frontend-package"]:
+        old = before.get(key, "unknown")
+        new = after.get(key, "unknown")
+        if old != new:
+            changes.append(f"  {key}: {old} -> {new}")
+    if changes:
+        cprint("\nVersions updated:", YELLOW, bold=True)
+        for line in changes:
+            cprint(line, GREEN)
+    else:
+        cprint("\nAll versions unchanged.", GREEN)
+
 pygit2.option(pygit2.GIT_OPT_SET_OWNER_VALIDATION, 0)
 
-repo_path = str(sys.argv[1])          # ..\ComfyUI
+repo_path = str(sys.argv[1])
 repo = pygit2.Repository(repo_path)
 ident = pygit2.Signature('comfyui', 'comfy@ui')
 
-# stash
+cprint("Collecting environment before update...", CYAN)
+before_summary = get_env_summary()
+print_summary(before_summary)
+
 try:
-    print("stashing current changes")
+    cprint("stashing current changes", YELLOW)
     repo.stash(ident)
 except KeyError:
-    print("nothing to stash")
+    cprint("nothing to stash", YELLOW)
 
-# backup branch
 backup_branch_name = f'backup_branch_{datetime.today().strftime("%Y-%m-%d_%H_%M_%S")}'
-print(f"creating backup branch: {backup_branch_name}")
+cprint(f"creating backup branch: {backup_branch_name}", YELLOW)
 try:
     repo.branches.local.create(backup_branch_name, repo.head.peel())
 except:
     pass
 
-# checkout master
-print("checking out master branch")
+cprint("checking out master branch", YELLOW)
 branch = repo.lookup_branch('master')
 if branch is None:
     ref = repo.lookup_reference('refs/remotes/origin/master')
@@ -103,10 +208,9 @@ else:
     ref = repo.lookup_reference(branch.name)
     repo.checkout(ref)
 
-print("pulling latest changes")
+cprint("pulling latest changes", YELLOW)
 pull(repo)
 
-# stable tag
 if "--stable" in sys.argv:
     def latest_tag(repo):
         versions = []
@@ -126,11 +230,8 @@ if "--stable" in sys.argv:
     if tag is not None:
         repo.checkout(tag)
 
-print("Done!")
+cprint("Done!", GREEN)
 
-# ----------------------------------------------------------------------
-# Установка/обновление зависимостей из requirements.txt
-# ----------------------------------------------------------------------
 cur_path = os.path.dirname(os.path.realpath(__file__))
 req_path = os.path.join(cur_path, "current_requirements.txt")
 repo_req_path = os.path.join(repo_path, "requirements.txt")
@@ -150,4 +251,9 @@ if not os.path.exists(req_path) or not files_equal(repo_req_path, req_path):
         uv_pip_install(f"-r {repo_req_path}", python_exe)
         shutil.copy(repo_req_path, req_path)
     except Exception as e:
-        print(f"Failed to install requirements: {e}")
+        cprint(f"Failed to install requirements: {e}", RED)
+
+cprint("\nCollecting environment after update...", CYAN)
+after_summary = get_env_summary()
+print_summary(after_summary)
+print_diff(before_summary, after_summary)
