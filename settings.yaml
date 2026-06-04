@@ -26,6 +26,9 @@ wheels:
   libigl:
     url: "https://files.pythonhosted.org/packages/97/8b/77405e7076e218351a14c1561f2a324b499df8dd3711a517e5d082ed1c77/libigl-2.6.1-cp312-abi3-win_amd64.whl"
     no_deps: false
+  Comfy_Env:
+    url: "https://archive1.piwheels.org/simple/comfy-env/comfy_env-0.3.0-py3-none-any.whl"
+    no_deps: false
 #  torch:
 #    url: "https://download.pytorch.org/whl/nightly/cu128/torch-2.8.0.dev20250502%2Bcu128-cp312-cp312-win_amd64.whl"
 #    no_deps: false
@@ -119,7 +122,7 @@ nodes:
 # Дополнительные библиотеки (обычные пакеты из pypi)
 pypi_packages:
   - name: "pygit2"
-  - name: "comfy-env"
+  - name: "comfy-env==0.3.00"
   - name: "pylatexenc"
     url: "https://www.piwheels.org/simple/pylatexenc/pylatexenc-3.0a32-py3-none-any.whl"
   - name: "PyCurl"
