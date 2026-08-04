@@ -117,7 +117,10 @@ nodes:
   - url: "https://github.com/PozzettiAndrea/ComfyUI-GeometryPack"
     name: "ComfyUI-GeometryPack"
   - url: "https://github.com/Windecay/ComfyUI_Dynamic-RAMCache"
-    name: "ComfyUI_Dynamic-RAMCache"   
+    name: "ComfyUI_Dynamic-RAMCache"
+  - url: "https://github.com/Steudio/ComfyUI_Steudio"
+    name: "ComfyUI_Steudio"
+   
 
 # Дополнительные библиотеки (обычные пакеты из pypi)
 pypi_packages:

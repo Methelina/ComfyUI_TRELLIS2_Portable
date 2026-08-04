@@ -253,6 +253,12 @@ if not os.path.exists(req_path) or not files_equal(repo_req_path, req_path):
     except Exception as e:
         cprint(f"Failed to install requirements: {e}", RED)
 
+cprint("Restoring pinned regex==2025.10.22...", YELLOW)
+try:
+    uv_pip_install("regex==2025.10.22", python_exe)
+except Exception as e:
+    cprint(f"Failed to restore regex==2025.10.22: {e}", RED)
+
 cprint("\nCollecting environment after update...", CYAN)
 after_summary = get_env_summary()
 print_summary(after_summary)
