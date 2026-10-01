@@ -613,7 +613,7 @@ if (Test-Path $TrellisScript) {
 }
 
 # === 10. Install FaithContouring & Pulse-MeshAudit ===
-Write-Step "Installing FaithContouring and Pulse-MeshAudit..." 9 10
+Write-Step "Installing FaithContouring and Pulse-MeshAudit..." 10 10
 
 $FaithPulseScript = "Update\Faith-Pulse_install.py"
 if (Test-Path $FaithPulseScript) {
