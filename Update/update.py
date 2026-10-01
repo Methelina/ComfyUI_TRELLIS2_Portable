@@ -259,6 +259,21 @@ try:
 except Exception as e:
     cprint(f"Failed to restore regex==2025.10.22: {e}", RED)
 
+# NOTE: numpy==1.26.4 was the long-standing stable pin (see Faith-Pulse_install.py /
+# trellis2setup.py). Modern ComfyUI and its custom nodes require numpy 2.x, so the
+# stable pin was moved to 2.4.0. Kept here for reference:
+# cprint("Restoring pinned numpy==1.26.4 (legacy stable)...", YELLOW)
+# try:
+#     uv_pip_install("numpy==1.26.4", python_exe)
+# except Exception as e:
+#     cprint(f"Failed to restore numpy==1.26.4: {e}", RED)
+
+cprint("Restoring pinned numpy==2.4.0...", YELLOW)
+try:
+    uv_pip_install("numpy==2.4.0", python_exe)
+except Exception as e:
+    cprint(f"Failed to restore numpy==2.4.0: {e}", RED)
+
 cprint("\nCollecting environment after update...", CYAN)
 after_summary = get_env_summary()
 print_summary(after_summary)
