@@ -623,6 +623,16 @@ if (Test-Path $FaithPulseScript) {
     Write-Status "Faith+Pulse script not found at $FaithPulseScript" "WARN"
 }
 
+# === Pin restore: numpy==2.4.0, regex==2025.10.22 (same pins as update.py) ===
+Write-Status "Restoring pinned packages (numpy==2.4.0, regex==2025.10.22)..." "INFO"
+$UvExe = "$PSScriptRoot\uv.exe"
+$ComfyPython = "$PSScriptRoot\comfy_env\Scripts\python.exe"
+if ((Test-Path $UvExe) -and (Test-Path $ComfyPython)) {
+    & $UvExe pip install --python $ComfyPython --force-reinstall numpy==2.4.0 regex==2025.10.22 --no-deps
+} else {
+    Write-Status "uv.exe or comfy_env python not found - skipping pin restore." "WARN"
+}
+
 # === Finish ===
 Write-Host ""
 Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green

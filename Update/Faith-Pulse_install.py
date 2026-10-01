@@ -195,12 +195,13 @@ def step_install_dependencies():
     write_status("Installing comfy-env...", "INFO")
     run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "comfy-env>=0.2.7", "--no-deps"] + PIP_ARGS)
 
-    # 5. Ensure numpy 1.26.4 (only if needed)
+    # 5. Ensure numpy 2.4.0 (only if needed)
+    # NOTE: numpy==1.26.4 was the previous stable pin; moved to 2.4.0 for modern ComfyUI.
     result = subprocess.run([PYTHON_EXE, "-c", "import numpy; print(numpy.__version__)"], capture_output=True, text=True)
     current_numpy = result.stdout.strip()
-    if current_numpy and current_numpy != '1.26.4':
-        write_status(f"Current numpy version is {current_numpy}, restoring 1.26.4...", "INFO")
-        run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "--force-reinstall", "numpy==1.26.4", "--no-deps"] + PIP_ARGS)
+    if current_numpy and current_numpy != '2.4.0':
+        write_status(f"Current numpy version is {current_numpy}, restoring 2.4.0...", "INFO")
+        run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "--force-reinstall", "numpy==2.4.0", "--no-deps"] + PIP_ARGS)
     else:
         write_status(f"numpy version {current_numpy} is already compatible.", "SUCCESS")
 

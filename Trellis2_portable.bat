@@ -306,6 +306,12 @@ if exist "%~dp0Update\Faith-Pulse_install.py" (
 )
 
 echo.
+echo >>> Restoring pinned packages (numpy==2.4.0, regex==2025.10.22)...
+REM NOTE: numpy==1.26.4 was the previous stable pin; moved to 2.4.0 for modern ComfyUI.
+"!UvExePath!" pip install --python "!PythonExePath!" --force-reinstall numpy==2.4.0 regex==2025.10.22 --no-deps %PIPargs%
+if errorlevel 1 echo [WARN] Pin restore returned code !ERRORLEVEL!
+
+echo.
 echo ╔══════════════════════════════════════════════════════════════╗
 echo ║                INSTALLATION COMPLETE                         ║
 echo ╚══════════════════════════════════════════════════════════════╝

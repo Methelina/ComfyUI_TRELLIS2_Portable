@@ -186,4 +186,13 @@ if %EXIT_CODE% neq 0 (
 )
 
 echo.
+echo [INFO] Restoring pinned packages in comfy_env (numpy==2.4.0, regex==2025.10.22)...
+:: NOTE: numpy==1.26.4 was the previous stable pin; moved to 2.4.0 for modern ComfyUI.
+if exist "%~dp0uv.exe" (
+    "%~dp0uv.exe" pip install --python "%~dp0comfy_env\Scripts\python.exe" --force-reinstall numpy==2.4.0 regex==2025.10.22 --no-deps
+) else (
+    echo [WARN] uv.exe not found - skipping pin restore.
+)
+
+echo.
 pause

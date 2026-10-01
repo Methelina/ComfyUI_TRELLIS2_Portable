@@ -729,12 +729,13 @@ def step_apply_patches():
         except Exception as e:
             write_status(f"Failed to patch remeshing.py: {e}", "WARN")
 
-    # ---------- 2. Upgrade pooch, ensure numpy 1.26.4 ----------
+    # ---------- 2. Upgrade pooch, ensure numpy 2.4.0 ----------
+    # NOTE: numpy==1.26.4 was the previous stable pin; moved to 2.4.0 for modern ComfyUI.
     run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "--upgrade", "pooch", "--no-deps"] + PIP_ARGS)
-    result = subprocess.run([PYTHON_EXE, "-c", "import numpy, sys; sys.exit(0 if numpy.__version__ == '1.26.4' else 1)"])
+    result = subprocess.run([PYTHON_EXE, "-c", "import numpy, sys; sys.exit(0 if numpy.__version__ == '2.4.0' else 1)"])
     if result.returncode != 0:
-        write_status("Restoring numpy 1.26.4 for compatibility...", "INFO")
-        run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "--force-reinstall", "numpy==1.26.4", "--no-deps"] + PIP_ARGS)
+        write_status("Restoring numpy 2.4.0 for compatibility...", "INFO")
+        run_command_live([UV_EXE, "pip", "install", "--python", PYTHON_EXE, "--force-reinstall", "numpy==2.4.0", "--no-deps"] + PIP_ARGS)
 
     # ---------- 3. Dirty patch nvdiffrast int32 for tri/faces ----------
     # [DISABLED] The following dirty patch is commented out.
